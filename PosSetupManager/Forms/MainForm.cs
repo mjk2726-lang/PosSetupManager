@@ -16,6 +16,8 @@ namespace PosSetupManager.Forms
         // 좌측
         private Panel pnlStoreList;
         private FluentButton btnNewStore;
+        private DateTimePicker dtpFilterFrom, dtpFilterTo;
+        private bool _filterAll = false;
 
         // 헤더
         private Panel pnlHeaderCard;
@@ -138,6 +140,41 @@ namespace PosSetupManager.Forms
             bot.Controls.Add(btnSet);
             bot.Controls.Add(btnNewStore);
             c.Controls.Add(bot);
+
+            // 완료내역 필터 패널 (Bottom 위)
+            var pnlFilter = new Panel { Dock = DockStyle.Bottom, Height = 90, BackColor = SURFACE, Padding = new Padding(10, 6, 10, 6) };
+            pnlFilter.Paint += (s, e) => e.Graphics.DrawLine(new Pen(BORDER), 0, 0, pnlFilter.Width, 0);
+
+            var lblFilter = new Label { Text = "완료내역 날짜 필터", Font = new Font("Segoe UI", 8f, FontStyle.Bold), ForeColor = TXT_S, Location = new Point(10, 6), AutoSize = true };
+            dtpFilterFrom = new DateTimePicker { Location = new Point(10, 24), Width = 120, Format = DateTimePickerFormat.Short, Font = new Font("Segoe UI", 8.5f), Value = DateTime.Today.AddDays(-2) };
+            var lblTo = new Label { Text = "~", Location = new Point(134, 28), AutoSize = true, Font = FluentFonts.Body };
+            dtpFilterTo = new DateTimePicker { Location = new Point(148, 24), Width = 120, Format = DateTimePickerFormat.Short, Font = new Font("Segoe UI", 8.5f), Value = DateTime.Today };
+
+            dtpFilterFrom.ValueChanged += (s, e) => { _filterAll = false; RefreshStoreList(); };
+            dtpFilterTo.ValueChanged += (s, e) => { _filterAll = false; RefreshStoreList(); };
+
+            var btnAll = new FluentButton { Text = "전체보기", Location = new Point(10, 54), Width = 76, Height = 28 };
+            btnAll.Click += (s, e) => { _filterAll = true; RefreshStoreList(); };
+
+            var btnDelFiltered = new FluentButton { Text = "🗑 선택삭제", IsDanger = true, Location = new Point(92, 54), Width = 88, Height = 28 };
+            btnDelFiltered.Click += (s, e) =>
+            {
+                var targets = _filterAll
+                    ? _workspace.CompletedSessions
+                    : _workspace.CompletedSessions.FindAll(x =>
+                        x.CompletedAt.HasValue &&
+                        x.CompletedAt.Value.Date >= dtpFilterFrom.Value.Date &&
+                        x.CompletedAt.Value.Date <= dtpFilterTo.Value.Date);
+
+                if (targets.Count == 0) { MessageBox.Show("해당 기간의 완료 항목이 없습니다.", "알림", MessageBoxButtons.OK, MessageBoxIcon.Information); return; }
+                if (MessageBox.Show(string.Format("{0}개 항목을 삭제하시겠습니까?", targets.Count), "삭제 확인", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes) return;
+                foreach (var t in targets) _workspace.CompletedSessions.Remove(t);
+                _workspace.Save();
+                RefreshStoreList();
+            };
+
+            pnlFilter.Controls.AddRange(new Control[] { lblFilter, dtpFilterFrom, lblTo, dtpFilterTo, btnAll, btnDelFiltered });
+            c.Controls.Add(pnlFilter);
 
             pnlStoreList = new Panel { Dock = DockStyle.Fill, BackColor = SURFACE, AutoScroll = true, Padding = new Padding(12, 8, 12, 8) };
             c.Controls.Add(pnlStoreList);
@@ -398,7 +435,6 @@ namespace PosSetupManager.Forms
             {
                 Location = new Point(0, y),
                 BackColor = SURFACE,
-                Padding = new Padding(20),
                 Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Top,
                 Width = page.ClientSize.Width > 20 ? page.ClientSize.Width : 700
             };
@@ -462,6 +498,7 @@ namespace PosSetupManager.Forms
             txtStartTime.Leave += (s, e) => { txtStartTime.Text = FmtT(txtStartTime.Text); UpdateElapsed(); UpdateStartBtn(); };
             txtEndTime.Leave += (s, e) => { txtEndTime.Text = FmtT(txtEndTime.Text); UpdateElapsed(); UpdateStartBtn(); };
             txtLinkEndTime.Leave += (s, e) => { txtLinkEndTime.Text = FmtT(txtLinkEndTime.Text); };
+            txtInstallTime.Leave += (s, e) => { txtInstallTime.Text = FmtT(txtInstallTime.Text); };
             txtStartTime.TextChanged += (s, e) => { UpdateElapsed(); UpdateStartBtn(); };
             txtEndTime.TextChanged += (s, e) => { UpdateElapsed(); UpdateStartBtn(); };
 
@@ -508,13 +545,13 @@ namespace PosSetupManager.Forms
             c1.Height = cy + 20; y += c1.Height + 16;
 
             var c2 = MakeCard(inner, ref y); cy = 0;
-            c2.Controls.Add(new Label { Text = "원격 어드민", Font = new Font("Segoe UI", 11f, FontStyle.Bold), ForeColor = TXT, Location = new Point(0, cy), AutoSize = true }); cy += 36;
+            c2.Controls.Add(new Label { Text = "원격명 어드민 매장명과 동일하게 셋팅", Font = new Font("Segoe UI", 11f, FontStyle.Bold), ForeColor = TXT, Location = new Point(0, cy), AutoSize = true }); cy += 36;
             rbAdminSame = AddRB(c2, "동일", 0, cy); rbAdminDiff = AddRB(c2, "다름", 90, cy); cy += 34;
             GroupRBs(rbAdminSame, rbAdminDiff);
             c2.Height = cy + 20; y += c2.Height + 16;
 
             var c3 = MakeCard(inner, ref y); cy = 0;
-            c3.Controls.Add(new Label { Text = "LMM 계정", Font = new Font("Segoe UI", 11f, FontStyle.Bold), ForeColor = TXT, Location = new Point(0, cy), AutoSize = true }); cy += 36;
+            c3.Controls.Add(new Label { Text = "LMM매장명(어드민계정ID)셋팅", Font = new Font("Segoe UI", 11f, FontStyle.Bold), ForeColor = TXT, Location = new Point(0, cy), AutoSize = true }); cy += 36;
             rbLmmOk = AddRB(c3, "O (완료)", 0, cy); rbLmmFail = AddRB(c3, "X (미완료)", 110, cy); cy += 34;
             GroupRBs(rbLmmOk, rbLmmFail);
             c3.Height = cy + 20; y += c3.Height + 16;
@@ -550,11 +587,38 @@ namespace PosSetupManager.Forms
             var inner = MakeScrollContent(page);
             int y = 0;
 
-            // ── 이동된 체크 항목 ──
+            // ── 이동된 체크 항목 (OX 행은 폼 기준 절대위치) ──
             var c0 = MakeCard(inner, ref y); int cy = 0;
             c0.Controls.Add(new Label { Text = "네트워크 확인", Font = new Font("Segoe UI", 11f, FontStyle.Bold), ForeColor = TXT, Location = new Point(0, cy), AutoSize = true }); cy += 36;
-            oxExternalIP = AddOX(c0, "외부로부터 공인 IP 확인", ref cy);
-            oxDHCP = AddOX(c0, "DHCP 및 포트포워딩 설정", ref cy);
+
+            // OX 행 - 폼 너비 기준
+            Action<string, System.Action<OxRadio>> addNetOX = (lbl, setter) =>
+            {
+                // 각 행을 Panel로 감싸서 라디오버튼 그룹 분리
+                var rowLbl = new Label { Text = lbl, Location = new Point(0, cy + 6), Height = 20, Font = FluentFonts.Body, ForeColor = TXT };
+                var btnPanel = new Panel { Location = new Point(0, cy), Height = 30, BackColor = Color.White };
+                var rbO2 = new RadioButton { Text = "O", Location = new Point(0, 4), Width = 48, Height = 22, Font = FluentFonts.Body };
+                var rbX2 = new RadioButton { Text = "X", Location = new Point(52, 4), Width = 48, Height = 22, Font = FluentFonts.Body };
+                btnPanel.Controls.Add(rbO2);
+                btnPanel.Controls.Add(rbX2);
+                c0.Controls.Add(rowLbl);
+                c0.Controls.Add(btnPanel);
+                int rowCy = cy;
+                Action upd = () =>
+                {
+                    int w = this.Width - 300 - 280 - 120;
+                    if (w < 300) w = 300;
+                    btnPanel.Location = new Point(w - 108, rowCy);
+                    rowLbl.Width = w - 116;
+                };
+                upd();
+                this.Resize += (s2, e2) => upd();
+                setter(new OxRadio(lbl, rbO2, rbX2));
+                cy += 34;
+            };
+
+            addNetOX("외부로부터 공인 IP 확인", ox => oxExternalIP = ox);
+            addNetOX("DHCP 및 포트포워딩 설정", ox => oxDHCP = ox);
 
             c0.Controls.Add(new Label { Text = "로컬모드", Location = new Point(0, cy + 6), AutoSize = true, Font = FluentFonts.Body });
             chkLocalMenuBoard = new CheckBox { Text = "메뉴판(5060)", Location = new Point(120, cy + 4), AutoSize = true, Font = FluentFonts.Body };
@@ -583,13 +647,27 @@ namespace PosSetupManager.Forms
         // ═══════════════════════════════
         // 탭4: 체크리스트
         // ═══════════════════════════════
+        private Panel _checklistContainer; // OX 행들을 담는 컨테이너
+
         private void BuildTabChecklist(Panel c)
         {
             var page = MakePage(c, 3);
-            var inner = MakeScrollContent(page);
-            int y = 0;
 
-            var btnAll = new FluentButton { Text = "✔  일괄 O 선택", Location = new Point(0, y), Width = 140, Height = 38 };
+            // 전체를 FlowLayoutPanel(TopDown)으로 구성 - 너비 자동
+            var flow = new FlowLayoutPanel
+            {
+                Dock = FlowDirection.TopDown.ToString() == "TopDown" ? DockStyle.Fill : DockStyle.Fill,
+                AutoScroll = true,
+                FlowDirection = FlowDirection.TopDown,
+                WrapContents = false,
+                BackColor = BG,
+                Padding = new Padding(20, 16, 20, 16)
+            };
+            flow.Dock = DockStyle.Fill;
+            page.Controls.Add(flow);
+
+            // 일괄 O 버튼
+            var btnAll = new FluentButton { Text = "✔  일괄 O 선택", Width = 140, Height = 38, Margin = new Padding(0, 0, 0, 12) };
             btnAll.Click += (s, e) =>
             {
                 oxFirewall.SetValue("O"); oxFirewallPopup.SetValue("O");
@@ -599,33 +677,107 @@ namespace PosSetupManager.Forms
                 oxMenuBoardVer.SetValue("O"); oxMenuBoardAuto.SetValue("O");
                 oxCoupon.SetValue("O");
             };
-            inner.Controls.Add(btnAll); y += 54;
+            flow.Controls.Add(btnAll);
 
-            var card = MakeCard(inner, ref y); int cy = 0;
-            card.Controls.Add(new Label { Text = "설치 체크리스트", Font = new Font("Segoe UI", 11f, FontStyle.Bold), ForeColor = TXT, Location = new Point(0, cy), AutoSize = true }); cy += 36;
+            // 카드 (FlowLayoutPanel 안에서 너비=flow.ClientSize)
+            var card = new RoundPanel(12)
+            {
+                BackColor = SURFACE,
+                Margin = new Padding(0, 0, 0, 0)
+            };
+            // flow가 리사이즈될 때 card 너비 맞춤
+            flow.Resize += (s, e) =>
+            {
+                card.Width = flow.ClientSize.Width;
+            };
+            card.Width = 800; // 초기값
+            flow.Controls.Add(card);
 
-            oxFirewall = AddOX(card, "방화벽 & 디펜더 OFF", ref cy);
-            oxFirewallPopup = AddOX(card, "방화벽 & 디펜더 팝업 알림 설정 OFF", ref cy);
+            // card 안에 FlowLayoutPanel (TopDown) - 컨트롤들 담기
+            var cf = new FlowLayoutPanel
+            {
+                Dock = DockStyle.Fill,
+                FlowDirection = FlowDirection.TopDown,
+                WrapContents = false,
+                AutoSize = true,
+                AutoSizeMode = AutoSizeMode.GrowAndShrink,
+                BackColor = SURFACE,
+                Padding = new Padding(16, 16, 16, 16)
+            };
+            card.Controls.Add(cf);
+            card.AutoSize = true;
+            card.AutoSizeMode = AutoSizeMode.GrowAndShrink;
 
-            AddDivider(card, cy); cy += 20;
+            // 헬퍼: cf에 OX 행 추가
+            Func<string, RadioButton, RadioButton> addRow = (lbText, dummy) => null;
 
-            card.Controls.Add(new Label { Text = "오더포스 갯수", Location = new Point(0, cy + 6), AutoSize = true, Font = FluentFonts.Body });
-            cmbOrderPosCount = new RoundComboBox { Location = new Point(180, cy), Width = 100, Height = 42 };
+            // 제목
+            cf.Controls.Add(new Label { Text = "설치 체크리스트", Font = new Font("Segoe UI", 11f, FontStyle.Bold), ForeColor = TXT, AutoSize = true, Margin = new Padding(0, 0, 0, 12) });
+
+            // OX 행 생성 함수 - 폼 리사이즈에 따라 O/X 위치 동적 조정
+            Func<string, OxRadio> makeOX = (lbText) =>
+            {
+                var rowLbl = new Label { Text = lbText, Location = new Point(0, 6), Height = 20, Font = FluentFonts.Body, ForeColor = TXT };
+
+                // O/X 버튼을 별도 Panel로 감싸서 라디오버튼 그룹 분리
+                var btnPanel = new Panel { Location = new Point(0, 4), Size = new Size(106, 22), BackColor = SURFACE };
+                var rbO2 = new RadioButton { Text = "O", Location = new Point(0, 0), Width = 48, Height = 22, Font = FluentFonts.Body };
+                var rbX2 = new RadioButton { Text = "X", Location = new Point(54, 0), Width = 48, Height = 22, Font = FluentFonts.Body };
+                btnPanel.Controls.Add(rbO2);
+                btnPanel.Controls.Add(rbX2);
+
+                var row = new Panel { Height = 30, BackColor = SURFACE, Margin = new Padding(0, 2, 0, 2) };
+                row.Controls.Add(rowLbl);
+                row.Controls.Add(btnPanel);
+                cf.Controls.Add(row);
+
+                Action update = () =>
+                {
+                    int w = this.Width - 300 - 280 - 120;
+                    if (w < 300) w = 300;
+                    row.Width = w;
+                    btnPanel.Location = new Point(w - 108, 4);
+                    rowLbl.Width = w - 116;
+                };
+                update();
+                this.Resize += (s2, e2) => update();
+
+                return new OxRadio(lbText, rbO2, rbX2);
+            };
+
+            oxFirewall = makeOX("방화벽 및 디펜더 OFF");
+            oxFirewallPopup = makeOX("방화벽 및 디펜더 팝업 알림 설정 OFF");
+
+            cf.Controls.Add(new Panel { Height = 1, Width = 600, BackColor = BORDER, Margin = new Padding(0, 8, 0, 8) });
+
+            // 오더포스 갯수
+            var rowOPC = new Panel { Height = 36, BackColor = SURFACE, Margin = new Padding(0, 2, 0, 2) };
+            rowOPC.Controls.Add(new Label { Text = "오더포스 갯수", Location = new Point(0, 8), AutoSize = true, Font = FluentFonts.Body });
+            cmbOrderPosCount = new RoundComboBox { Location = new Point(180, 0), Width = 100, Height = 36 };
             cmbOrderPosCount.DropDownStyle = ComboBoxStyle.DropDownList;
             cmbOrderPosCount.Items.AddRange(new object[] { "X", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10" });
             cmbOrderPosCount.SelectedIndex = 0;
-            card.Controls.Add(cmbOrderPosCount); cy += 50;
+            rowOPC.Controls.Add(cmbOrderPosCount);
+            cf.Resize += (s2, e2) => { rowOPC.Width = cf.ClientSize.Width - 32; };
+            rowOPC.Width = 700;
+            cf.Controls.Add(rowOPC);
 
-            card.Controls.Add(new Label { Text = "오더포스 특이사항", Location = new Point(0, cy + 12), AutoSize = true, Font = FluentFonts.Body });
-            txtOrderPosNote = new RoundTextBox { Location = new Point(180, cy), Width = 320, Height = 42 };
-            card.Controls.Add(txtOrderPosNote); cy += 50;
+            // 오더포스 특이사항
+            var rowOPN = new Panel { Height = 42, BackColor = SURFACE, Margin = new Padding(0, 2, 0, 2) };
+            rowOPN.Controls.Add(new Label { Text = "오더포스 특이사항", Location = new Point(0, 12), AutoSize = true, Font = FluentFonts.Body });
+            txtOrderPosNote = new RoundTextBox { Location = new Point(180, 0), Width = 320, Height = 42 };
+            rowOPN.Controls.Add(txtOrderPosNote);
+            cf.Resize += (s2, e2) => { rowOPN.Width = cf.ClientSize.Width - 32; };
+            rowOPN.Width = 700;
+            cf.Controls.Add(rowOPN);
 
-            AddDivider(card, cy); cy += 20;
+            cf.Controls.Add(new Panel { Height = 1, Width = 600, BackColor = BORDER, Margin = new Padding(0, 8, 0, 8) });
 
-            oxHiorderLogin = AddOX(card, "하이오더 포스 계정 로그인", ref cy);
-            oxSyncOrder = AddOX(card, "동기화 & 주문 테스트 출력", ref cy);
+            oxHiorderLogin = makeOX("하이오더 포스 계정 로그인");
+            oxSyncOrder = makeOX("동기화 및 주문테스트 출력");
 
-            pnlPrepaid = new Panel { Location = new Point(0, cy), Size = new Size(660, 88), BackColor = Color.FromArgb(235, 245, 255), Visible = false };
+            // 선불 패널
+            pnlPrepaid = new Panel { Size = new Size(660, 88), BackColor = Color.FromArgb(235, 245, 255), Visible = false, Margin = new Padding(0, 4, 0, 4) };
             pnlPrepaid.Paint += (s, e) =>
             {
                 e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
@@ -641,28 +793,32 @@ namespace PosSetupManager.Forms
             chkPrepaid5Man = new CheckBox { Text = "5만원이상 테스트 결제 진행", Location = new Point(360, 28), AutoSize = true, Font = FluentFonts.Body };
             chkPrepaidKSNET = new CheckBox { Text = "KSNET(카드결제 테스트진행)", Location = new Point(12, 58), AutoSize = true, Font = FluentFonts.Body };
             pnlPrepaid.Controls.AddRange(new Control[] { chkPrepaidTable, chkPrepaidPayment, chkPrepaid5Man, chkPrepaidKSNET });
-            card.Controls.Add(pnlPrepaid); cy += 100;
+            cf.Controls.Add(pnlPrepaid);
 
-            AddDivider(card, cy); cy += 20;
+            cf.Controls.Add(new Panel { Height = 1, Width = 600, BackColor = BORDER, Margin = new Padding(0, 8, 0, 8) });
 
-            oxTableSort = AddOX(card, "동기화 후 환경설정 테이블관리 → 테이블명 순으로 정렬", ref cy);
-            card.Controls.Add(new Label { Text = "설치 후 와이파이 상태 점검", Location = new Point(0, cy + 6), AutoSize = true, Font = FluentFonts.Body });
-            rbWifiGood = new RadioButton { Text = "좋음", Location = new Point(230, cy + 4), AutoSize = true, Font = FluentFonts.Body };
-            rbWifiOk = new RadioButton { Text = "양호", Location = new Point(296, cy + 4), AutoSize = true, Font = FluentFonts.Body };
-            rbWifiBad = new RadioButton { Text = "불량", Location = new Point(362, cy + 4), AutoSize = true, Font = FluentFonts.Body };
-            GroupRBs(rbWifiGood, rbWifiOk, rbWifiBad);
-            card.Controls.AddRange(new Control[] { rbWifiGood, rbWifiOk, rbWifiBad }); cy += 36;
+            oxTableSort = makeOX("동기화 후 환경설정 테이블관리 → 테이블명 순으로 정렬");
 
-            AddDivider(card, cy); cy += 20;
+            // 와이파이 상태
+            var rowWifi = new Panel { Height = 30, BackColor = SURFACE, Margin = new Padding(0, 2, 0, 2) };
+            rowWifi.Controls.Add(new Label { Text = "설치 후 와이파이 상태 점검", Location = new Point(0, 5), AutoSize = true, Font = FluentFonts.Body });
+            rbWifiGood = new RadioButton { Text = "좋음", Location = new Point(230, 4), AutoSize = true, Font = FluentFonts.Body };
+            rbWifiOk = new RadioButton { Text = "양호", Location = new Point(290, 4), AutoSize = true, Font = FluentFonts.Body };
+            rbWifiBad = new RadioButton { Text = "불량", Location = new Point(350, 4), AutoSize = true, Font = FluentFonts.Body };
+            rowWifi.Controls.AddRange(new Control[] { rbWifiGood, rbWifiOk, rbWifiBad });
+            cf.Resize += (s2, e2) => { rowWifi.Width = cf.ClientSize.Width - 32; };
+            rowWifi.Width = 700;
+            cf.Controls.Add(rowWifi);
 
-            oxMenuImage = AddOX(card, "메뉴 이미지 요청", ref cy);
-            oxNoticeBoardVer = AddOX(card, "알림판 Ver 확인", ref cy);
-            oxNoticeBoardAdmin = AddOX(card, "알림판 어드민 자동 업데이트 설정 확인", ref cy);
-            oxMenuBoardVer = AddOX(card, "메뉴판 Ver 확인", ref cy);
-            oxMenuBoardAuto = AddOX(card, "메뉴-1차 자동실행 설정", ref cy);
-            oxCoupon = AddOX(card, "쿠폰 생성 여부", ref cy);
+            cf.Controls.Add(new Panel { Height = 1, Width = 600, BackColor = BORDER, Margin = new Padding(0, 8, 0, 8) });
+
+            oxMenuImage = makeOX("메뉴 이미지 요청");
+            oxNoticeBoardVer = makeOX("알림판 Ver 확인");
+            oxNoticeBoardAdmin = makeOX("알림판 어드민 자동 업데이트 설정 확인");
+            oxMenuBoardVer = makeOX("메뉴판 Ver 확인");
+            oxMenuBoardAuto = makeOX("매니저 자동실행 설정 (작업 스케줄러)");
+            oxCoupon = makeOX("쿠폰 생성 여부");
             oxCoupon.OnChanged += v => { if (pnlCouponX != null) pnlCouponX.Visible = (v == "X"); };
-            card.Height = cy + 20;
         }
 
         // ═══════════════════════════════
@@ -800,7 +956,15 @@ namespace PosSetupManager.Forms
             y += 4;
             pnlStoreList.Controls.Add(new Label { Text = "완료", Font = new Font("Segoe UI", 8.5f, FontStyle.Bold), ForeColor = TXT_M, Location = new Point(4, y), AutoSize = true }); y += 22;
 
-            foreach (var s in _workspace.CompletedSessions)
+            // 날짜 필터 적용
+            var filtered = _filterAll
+                ? _workspace.CompletedSessions
+                : _workspace.CompletedSessions.FindAll(x =>
+                    x.CompletedAt.HasValue &&
+                    x.CompletedAt.Value.Date >= dtpFilterFrom.Value.Date &&
+                    x.CompletedAt.Value.Date <= dtpFilterTo.Value.Date);
+
+            foreach (var s in filtered)
             {
                 var ss = s; int comp, tot; CalcProg(ss.Data, out comp, out tot);
                 int pct = tot > 0 ? (int)Math.Round(comp * 100.0 / tot) : 0;
@@ -1004,7 +1168,7 @@ namespace PosSetupManager.Forms
             if (string.IsNullOrEmpty(d.Checklist.CheckNoticeBoardVer)) e.Add("• 알림판 Ver");
             if (string.IsNullOrEmpty(d.Checklist.CheckNoticeBoardAdmin)) e.Add("• 알림판 어드민");
             if (string.IsNullOrEmpty(d.Checklist.CheckMenuBoardVer)) e.Add("• 메뉴판 Ver");
-            if (string.IsNullOrEmpty(d.Checklist.CheckMenuBoardAutoRun)) e.Add("• 메뉴 자동실행");
+            if (string.IsNullOrEmpty(d.Checklist.CheckMenuBoardAutoRun)) e.Add("• 매니저 자동실행 설정");
             if (string.IsNullOrEmpty(d.Checklist.CheckCoupon)) e.Add("• 쿠폰 생성 여부");
             return e;
         }
@@ -1049,52 +1213,40 @@ namespace PosSetupManager.Forms
 
         private OxRadio AddOX(Control p, string label, ref int y)
         {
-            // rbO, rbX: 크기 고정, 위치 고정 (우측에서 역산)
-            var rbO = new RadioButton { Text = "O", Location = new Point(999, 5), Width = 46, Height = 22, Font = FluentFonts.Body };
-            var rbX = new RadioButton { Text = "X", Location = new Point(999, 5), Width = 46, Height = 22, Font = FluentFonts.Body };
-
+            var rbO = new RadioButton { Text = "O", Width = 48, Height = 22, Font = FluentFonts.Body };
+            var rbX = new RadioButton { Text = "X", Width = 48, Height = 22, Font = FluentFonts.Body };
             var lbl = new Label
             {
                 Text = label,
-                Location = new Point(0, 6),
-                Height = 20,
+                Location = new Point(20, y + 6),
+                Height = 22,
                 Font = FluentFonts.Body,
-                ForeColor = TXT
+                ForeColor = TXT,
+                Anchor = AnchorStyles.Left | AnchorStyles.Top
             };
 
-            var wrap = new Panel
+            // rbO/rbX는 Anchor Right로 p 기준 우측 고정
+            rbO.Anchor = AnchorStyles.Right | AnchorStyles.Top;
+            rbX.Anchor = AnchorStyles.Right | AnchorStyles.Top;
+
+            p.Controls.Add(lbl);
+            p.Controls.Add(rbO);
+            p.Controls.Add(rbX);
+
+            // 위치: p.Width 기준 우측에서 역산 (ref y를 로컬로 복사)
+            int rowY = y;
+            Action pos = () =>
             {
-                Location = new Point(0, y),
-                Height = 32,
-                BackColor = Color.White,
-                Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Top
+                int w = p.Width;
+                rbX.Location = new Point(w - 56, rowY + 5);
+                rbO.Location = new Point(w - 108, rowY + 5);
+                lbl.Width = w - 120;
             };
-
-            // wrap에 컨트롤 추가
-            wrap.Controls.Add(lbl);
-            wrap.Controls.Add(rbO);
-            wrap.Controls.Add(rbX);
-            p.Controls.Add(wrap);
-
-            // wrap 크기 확정 후 위치 계산
-            Action reposition = () =>
-            {
-                int w = wrap.Width > 0 ? wrap.Width : 700;
-                rbX.Location = new Point(w - 48, 5);
-                rbO.Location = new Point(w - 96, 5);
-                lbl.Width = w - 100;
-            };
-
-            wrap.Resize += (s, e) => reposition();
-            wrap.Width = p.Width > 40 ? p.Width - 40 : 700;
-            p.Resize += (s, e) => { wrap.Width = p.Width > 40 ? p.Width - 40 : 700; };
-            // 폼이 로드된 후 한 번 더 보정
-            p.FindForm()?.Load += (s, e) => reposition();
-
-            reposition();
+            pos();
+            p.Resize += (s2, e2) => pos();
 
             var ox = new OxRadio(label, rbO, rbX);
-            y += 36;
+            y += 34;
             return ox;
         }
 
@@ -1192,14 +1344,14 @@ namespace PosSetupManager.Forms
             if (session.Status != "완료")
             {
                 var done = new Label { Text = "완료처리", Font = new Font("Segoe UI", 7.5f), ForeColor = ACC, AutoSize = true, TextAlign = ContentAlignment.MiddleCenter, Cursor = Cursors.Hand, BorderStyle = BorderStyle.FixedSingle };
-                done.Location = new Point(Width - 58, 60); done.Anchor = AnchorStyles.Right | AnchorStyles.Top;
+                done.Location = new Point(Width - 68, 62); done.Anchor = AnchorStyles.Right | AnchorStyles.Top;
                 done.Click += (s, e) => OnComplete?.Invoke(_s.Id);
                 Controls.Add(done);
             }
             else
             {
                 var rest = new Label { Text = "복구", Font = new Font("Segoe UI", 7.5f), ForeColor = TS, AutoSize = true, TextAlign = ContentAlignment.MiddleCenter, Cursor = Cursors.Hand, BorderStyle = BorderStyle.FixedSingle };
-                rest.Location = new Point(Width - 40, 60); rest.Anchor = AnchorStyles.Right | AnchorStyles.Top;
+                rest.Location = new Point(Width - 52, 62); rest.Anchor = AnchorStyles.Right | AnchorStyles.Top;
                 rest.Click += (s, e) => OnRestore?.Invoke(_s.Id);
                 Controls.Add(rest);
             }
@@ -1222,32 +1374,25 @@ namespace PosSetupManager.Forms
             if (IsSelected)
                 e.Graphics.FillRectangle(new SolidBrush(ACC), new Rectangle(1, 12, 3, Height - 24));
 
-            // 이니셜 원
-            var initials = GetInitials(_s.DisplayName);
-            var circR = new Rectangle(10, 14, 40, 40);
-            e.Graphics.FillEllipse(new SolidBrush(Color.FromArgb(235, 244, 255)), circR);
-            e.Graphics.DrawEllipse(new Pen(Color.FromArgb(180, 210, 240)), circR);
-            TextRenderer.DrawText(e.Graphics, initials, new Font("Segoe UI", 11f, FontStyle.Bold), circR, ACC, TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter);
-
-            // 매장명
-            TextRenderer.DrawText(e.Graphics, _s.DisplayName, new Font("Segoe UI", 9.5f, FontStyle.Bold), new Rectangle(58, 10, Width - 88, 22), TM, TextFormatFlags.Left | TextFormatFlags.EndEllipsis);
-
-            // 상태
+            // 상태 컬러 점
             bool done = _s.Status == "완료";
             var statC = done ? GRN : YLW;
-            e.Graphics.FillEllipse(new SolidBrush(statC), new Rectangle(58, 34, 8, 8));
-            TextRenderer.DrawText(e.Graphics, done ? "완료" : "작성중", new Font("Segoe UI", 8.5f), new Rectangle(70, 30, 80, 16), statC, TextFormatFlags.Left);
+            e.Graphics.FillEllipse(new SolidBrush(statC), new Rectangle(12, 18, 9, 9));
 
-            // 진행률 숫자
+            // 매장명
+            TextRenderer.DrawText(e.Graphics, _s.DisplayName, new Font("Segoe UI", 9.5f, FontStyle.Bold), new Rectangle(26, 8, Width - 56, 22), TM, TextFormatFlags.Left | TextFormatFlags.EndEllipsis);
+
+            // 상태 텍스트 + 진행률 숫자
+            TextRenderer.DrawText(e.Graphics, done ? "완료" : "작성중", new Font("Segoe UI", 8.5f), new Rectangle(26, 30, 60, 16), statC, TextFormatFlags.Left);
             TextRenderer.DrawText(e.Graphics, _pct + "%", new Font("Segoe UI", 8.5f, FontStyle.Bold), new Rectangle(Width - 78, 30, 48, 16), ACC, TextFormatFlags.Right);
 
             // 진행률 바
-            var barR = new Rectangle(10, 56, Width - 20, 5);
+            var barR = new Rectangle(10, 52, Width - 20, 5);
             e.Graphics.FillRectangle(new SolidBrush(Color.FromArgb(220, 230, 240)), barR);
             int filled = (int)(barR.Width * _pct / 100.0);
             if (filled > 0) e.Graphics.FillRectangle(new SolidBrush(ACC), new Rectangle(barR.X, barR.Y, filled, barR.Height));
 
-            // 시간
+            // 날짜/시간
             TextRenderer.DrawText(e.Graphics, _s.CreatedAt.ToString("MM/dd HH:mm"), new Font("Segoe UI", 8f), new Rectangle(10, 64, 120, 16), TS, TextFormatFlags.Left);
         }
 
