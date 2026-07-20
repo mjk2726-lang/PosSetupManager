@@ -81,6 +81,8 @@ namespace PosSetupManager.Forms
         // 완료
         private Panel pnlCouponX;
         private RoundTextBox txtCouponXReason, txtRemoteEduContact, txtInstallIssue;
+        private System.Windows.Forms.TextBox txtAttachmentPath;
+        private FluentButton btnSelectFile;
         private FluentButton btnRegister;
 
         private DateTime? workStartTime;
@@ -879,6 +881,32 @@ namespace PosSetupManager.Forms
             card.Controls.Add(txtInstallIssue); cy += 136;
             card.Height = cy + 20; y += card.Height + 20;
 
+            // 파일 첨부
+            inner.Controls.Add(new Label { Text = "네트워크 상태 첨부", Font = new Font("Segoe UI", 10f, FontStyle.Bold), ForeColor = TXT, Location = new Point(0, y), AutoSize = true });
+            y += 28;
+            var fileCard = MakeCard(inner, ref y); int fcy = 0;
+            fileCard.Controls.Add(new Label { Text = "파일 선택", Location = new Point(0, fcy + 8), AutoSize = true, Font = FluentFonts.Body, ForeColor = TXT_S });
+            txtAttachmentPath = new System.Windows.Forms.TextBox { Location = new Point(80, fcy + 4), Width = 300, Height = 28, Font = FluentFonts.Body, BorderStyle = BorderStyle.FixedSingle, ReadOnly = true, BackColor = Color.FromArgb(245, 245, 245) };
+            btnSelectFile = new FluentButton { Text = "📁  파일 선택", Location = new Point(388, fcy), Width = 110, Height = 36 };
+            btnSelectFile.Click += (s, e) =>
+            {
+                using (var dlg = new OpenFileDialog())
+                {
+                    dlg.Title = "네트워크 상태 이미지 선택";
+                    dlg.Filter = "이미지 파일|*.jpg;*.jpeg;*.png;*.bmp;*.gif|모든 파일|*.*";
+                    if (dlg.ShowDialog() == DialogResult.OK)
+                    {
+                        txtAttachmentPath.Text = dlg.FileName;
+                        AutoSave();
+                    }
+                }
+            };
+            var btnClear = new FluentButton { Text = "✕", Location = new Point(506, fcy), Width = 36, Height = 36 };
+            btnClear.Click += (s, e) => { txtAttachmentPath.Text = ""; AutoSave(); };
+            fileCard.Controls.AddRange(new Control[] { txtAttachmentPath, btnSelectFile, btnClear });
+            fileCard.Height = fcy + 56;
+            y += fileCard.Height + 16;
+
             btnRegister = new FluentButton { Text = "🌐  다우오피스 자동 등록", IsPrimary = true, Location = new Point(0, y), Width = 210, Height = 46 };
             btnRegister.Font = new Font("Segoe UI", 10f, FontStyle.Bold);
             btnRegister.Click += BtnRegister_Click;
@@ -1106,6 +1134,7 @@ namespace PosSetupManager.Forms
             if (d.Basic.InstallDate.HasValue) dtpInstallDate.Inner.Value = d.Basic.InstallDate.Value;
             txtInstallTime.Text = d.Basic.InstallTime; txtRemoteManager.Text = d.Basic.RemoteManager;
             if (txtEngineerContact != null) txtEngineerContact.Text = d.Basic.EngineerContact;
+            if (txtAttachmentPath != null) txtAttachmentPath.Text = d.Basic.AttachmentPath ?? "";
             txtStartTime.Text = d.Basic.StartTime; txtEndTime.Text = d.Basic.EndTime;
             txtLinkEndTime.Text = d.Basic.LinkEndTime; txtElapsedTime.Text = d.Basic.ElapsedTime;
 
@@ -1154,6 +1183,7 @@ namespace PosSetupManager.Forms
             d.Basic.StoreName = txtStoreName.Text; if (dtpInstallDate != null) d.Basic.InstallDate = dtpInstallDate.Inner.Value;
             d.Basic.InstallTime = txtInstallTime.Text; d.Basic.RemoteManager = txtRemoteManager.Text;
             if (txtEngineerContact != null) d.Basic.EngineerContact = txtEngineerContact.Text;
+            if (txtAttachmentPath != null) d.Basic.AttachmentPath = txtAttachmentPath.Text;
             d.Basic.StartTime = txtStartTime.Text; d.Basic.EndTime = txtEndTime.Text;
             d.Basic.LinkEndTime = txtLinkEndTime.Text; d.Basic.ElapsedTime = txtElapsedTime.Text;
             d.Pos.RemoteAccount = rbLMM.Checked ? "LMM" : rbChrome.Checked ? "크롬" : rbSitrom.Checked ? "씨트롬" : rbRemoteEtc.Checked ? "기타" : "";

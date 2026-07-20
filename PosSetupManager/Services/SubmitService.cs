@@ -19,21 +19,28 @@ namespace PosSetupManager.Services
             {
                 var urlBefore = _page.Url;
 
-                // 버튼 위치를 찾아서 마우스로 직접 클릭
-                var btn = _page.Locator("a.btn_major.btn-confirm");
-                await btn.ScrollIntoViewIfNeededAsync();
-                await btn.ClickAsync(new LocatorClickOptions
-                {
-                    Force = true,
-                    Timeout = 5000
-                });
+                // 등록 버튼 후보: btn-confirm 또는 btn_major
+                ILocator btn = null;
+                var btnConfirm = _page.Locator("a.btn_major.btn-confirm");
+                var btnMajor = _page.Locator("a.btn_major");
 
-                // 등록 완료 시 URL 변경 확인
+                if (await btnConfirm.CountAsync() > 0)
+                    btn = btnConfirm;
+                else if (await btnMajor.CountAsync() > 0)
+                    btn = btnMajor.First;
+
+                if (btn == null)
+                    return Tuple.Create(false, "등록 버튼을 찾을 수 없습니다.");
+
+                await btn.ScrollIntoViewIfNeededAsync();
+                await btn.ClickAsync(new LocatorClickOptions { Force = true, Timeout = 10000 });
+
+                // 등록 완료: URL 변경 확인
                 try
                 {
                     await _page.WaitForURLAsync(
-                        url => !url.Contains("/doc/new") && url != urlBefore,
-                        new PageWaitForURLOptions { Timeout = 10000 });
+                        url => url != urlBefore,
+                        new PageWaitForURLOptions { Timeout = 15000 });
                     return Tuple.Create(true, (string)null);
                 }
                 catch

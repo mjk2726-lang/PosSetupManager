@@ -1,6 +1,7 @@
-﻿using System;
-using System.Threading.Tasks;
+﻿using Microsoft.Playwright;
 using PosSetupManager.Models;
+using System;
+using System.Threading.Tasks;
 
 namespace PosSetupManager.Services
 {
@@ -25,7 +26,6 @@ namespace PosSetupManager.Services
                 if (d.Basic.InstallDate.HasValue)
                 {
                     await input.FillDate("_lwltls4xf", d.Basic.InstallDate.Value, d.Basic.InstallTime);
-                    // 디버그: 실제로 값이 들어갔는지 확인
                     var timeVal = await input.GetValue("_lwltls4xf", "input[data-time='start']");
                     System.Diagnostics.Debug.WriteLine("시간 값: " + timeVal);
                 }
@@ -83,7 +83,34 @@ namespace PosSetupManager.Services
                 var submit = new SubmitService(page);
                 var result = await submit.SubmitAsync();
 
-                // 브라우저는 닫지 않음 — 사용자가 직접 검수
+                // ── 파일 첨부 (등록 완료 후 에디터 클릭 → Ctrl+V → 재등록) ──
+                if (result.Item1 && !string.IsNullOrEmpty(d.Basic.AttachmentPath))
+                {
+                    progress?.Report("파일 첨부 중...");
+                    // 등록 후 페이지 전환 + 에디터 로드 대기
+                    await page.WaitForTimeoutAsync(2000);
+                    try
+                    {
+                        // id=dext_frame_editor 또는 등록 버튼이 다시 나타날 때까지 대기
+                        await page.WaitForSelectorAsync(
+                            "iframe[id='dext_frame_editor'], a.btn_major",
+                            new PageWaitForSelectorOptions { Timeout = 10000 });
+                    }
+                    catch { await page.WaitForTimeoutAsync(3000); }
+                    await page.WaitForTimeoutAsync(1500);
+
+                    // 현재 모든 frame URL 로그
+                    foreach (var f in page.Frames)
+                        System.Diagnostics.Debug.WriteLine("FRAME: " + f.Name + " | " + f.Url);
+
+                    await input.AttachFile(d.Basic.AttachmentPath);
+                    await page.WaitForTimeoutAsync(1000);
+
+                    progress?.Report("최종 등록 중...");
+                    var submit2 = new SubmitService(page);
+                    result = await submit2.SubmitAsync();
+                }
+
                 if (result.Item1)
                     progress?.Report("등록 완료! 브라우저에서 검수해주세요.");
 
@@ -93,7 +120,6 @@ namespace PosSetupManager.Services
             {
                 return Tuple.Create(false, ex.Message);
             }
-            // browser.Dispose() 호출하지 않음 → 브라우저 유지
         }
     }
 }
