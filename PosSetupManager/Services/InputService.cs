@@ -192,8 +192,8 @@ namespace PosSetupManager.Services
         {
             if (table) await SafeClick("[data-cid='_h28myd6ub'] label[for='_h28myd6ub_0']");
             if (payment) await SafeClick("[data-cid='_h28myd6ub'] label[for='_h28myd6ub_1']");
-            if (over5Man) await SafeClick("[data-cid='_h28myd6ub'] label[for='_h28myd6ub_2']");
-            if (ksnet) await SafeClick("[data-cid='_h28myd6ub'] label[for='_h28myd6ub_3']");
+            if (over5Man) await SafeClick("[data-cid='_h28myd6ub'] label[for='_h28myd6ub_3']");
+            if (ksnet) await SafeClick("[data-cid='_h28myd6ub'] label[for='_h28myd6ub_2']");
         }
 
         // ── 원격 담당자 (조직도 검색) ──

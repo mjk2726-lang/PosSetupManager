@@ -18,6 +18,9 @@ namespace PosSetupManager.Forms
         private FluentButton btnNewStore;
         private DateTimePicker dtpFilterFrom, dtpFilterTo;
         private bool _filterAll = false;
+        // 드래그 순번 변경
+        private TaskCard _dragItem = null;
+        private int _dragStartY = 0;
 
         // 헤더
         private Panel pnlHeaderCard;
@@ -41,7 +44,7 @@ namespace PosSetupManager.Forms
         private Label[] sideCircleLbls;
 
         // 기본정보
-        private RoundTextBox txtStoreName, txtRemoteManager;
+        private RoundTextBox txtStoreName, txtRemoteManager, txtEngineerContact;
         private RoundTextBox txtStartTime, txtEndTime, txtLinkEndTime, txtElapsedTime, txtInstallTime;
         private RoundDateTimePicker dtpInstallDate;
         private FluentButton btnStart, btnFinish;
@@ -70,6 +73,10 @@ namespace PosSetupManager.Forms
         private RadioButton rbWifiGood, rbWifiOk, rbWifiBad;
         private OxRadio oxMenuImage, oxNoticeBoardVer, oxNoticeBoardAdmin;
         private OxRadio oxMenuBoardVer, oxMenuBoardAuto, oxCoupon;
+
+        // 체크리스트 쿠폰X 사유
+        private Panel pnlCouponXChecklist;
+        private RoundTextBox txtCouponXReasonChecklist;
 
         // 완료
         private Panel pnlCouponX;
@@ -117,7 +124,7 @@ namespace PosSetupManager.Forms
 
             // Fill → Left 순서
             var right = new Panel { Dock = DockStyle.Fill, BackColor = BG };
-            var left = new Panel { Width = 300, Dock = DockStyle.Left, BackColor = SURFACE };
+            var left = new Panel { Width = 320, Dock = DockStyle.Left, BackColor = SURFACE };
             left.Paint += (s, e) => e.Graphics.DrawLine(new Pen(BORDER), left.Width - 1, 0, left.Width - 1, left.Height);
 
             Controls.Add(right);
@@ -176,11 +183,11 @@ namespace PosSetupManager.Forms
             pnlFilter.Controls.AddRange(new Control[] { lblFilter, dtpFilterFrom, lblTo, dtpFilterTo, btnAll, btnDelFiltered });
             c.Controls.Add(pnlFilter);
 
-            pnlStoreList = new Panel { Dock = DockStyle.Fill, BackColor = SURFACE, AutoScroll = true, Padding = new Padding(12, 8, 12, 8) };
+            pnlStoreList = new Panel { Dock = DockStyle.Fill, BackColor = SURFACE, AutoScroll = true };
             c.Controls.Add(pnlStoreList);
 
             // 상단 헤더
-            var head = new Panel { Dock = DockStyle.Top, Height = 56, BackColor = SURFACE, Padding = new Padding(16, 0, 16, 0) };
+            var head = new Panel { Dock = DockStyle.Top, Height = 52, BackColor = SURFACE, Padding = new Padding(16, 0, 16, 0) };
             head.Controls.Add(new Label { Text = "작업 목록", Font = new Font("Segoe UI", 11f, FontStyle.Bold), ForeColor = TXT, Dock = DockStyle.Fill, TextAlign = ContentAlignment.MiddleLeft });
             c.Controls.Add(head);
         }
@@ -194,19 +201,19 @@ namespace PosSetupManager.Forms
             c.Controls.Add(body);
 
             // 탭 (Top) 먼저
-            pnlTabs = new Panel { Dock = DockStyle.Top, Height = 48, BackColor = SURFACE, Visible = false };
+            pnlTabs = new Panel { Dock = DockStyle.Top, Height = 48, BackColor = SURFACE, Visible = false, Padding = new Padding(20, 0, 0, 0) };
             pnlTabs.Paint += (s, e) =>
                 e.Graphics.DrawLine(new Pen(BORDER), 0, pnlTabs.Height - 1, pnlTabs.Width, pnlTabs.Height - 1);
             c.Controls.Add(pnlTabs);
             BuildTabStrip();
 
             // 헤더 카드 (Top) 나중에 → 맨 위
-            pnlHeaderCard = new Panel { Dock = DockStyle.Top, Height = 104, BackColor = BG, Visible = false, Padding = new Padding(16, 12, 24, 12) };
+            pnlHeaderCard = new Panel { Dock = DockStyle.Top, Height = 104, BackColor = BG, Visible = false, Padding = new Padding(32, 12, 24, 12) };
             c.Controls.Add(pnlHeaderCard);
             BuildHeaderCard();
 
             // 콘텐츠
-            var sidebar = new Panel { Width = 280, Dock = DockStyle.Right, BackColor = BG, Padding = new Padding(0, 16, 16, 16), Visible = false };
+            var sidebar = new Panel { Width = 280, Dock = DockStyle.Right, BackColor = BG, Padding = new Padding(16, 16, 16, 16), Visible = false };
             pnlSidebar = sidebar;
             body.Controls.Add(sidebar);
             BuildSidebar();
@@ -233,10 +240,10 @@ namespace PosSetupManager.Forms
             // pnlHeaderCard 안에 직접 배치 (RoundPanel 없음 - 잘림 방지)
             pnlHeaderCard.BackColor = SURFACE;
 
-            lblHName = new Label { Location = new Point(20, 10), AutoSize = true, Font = new Font("Segoe UI", 15f, FontStyle.Bold), ForeColor = TXT };
-            lblHStatus = new Label { Location = new Point(20, 44), AutoSize = true, Font = new Font("Segoe UI", 9f), ForeColor = TXT_S };
-            hBar = new ProgressBar2 { Location = new Point(20, 62), Width = 260, Height = 6 };
-            lblHPct = new Label { Location = new Point(288, 57), AutoSize = true, Font = new Font("Segoe UI", 9f), ForeColor = TXT_S };
+            lblHName = new Label { Location = new Point(12, 10), AutoSize = true, Font = new Font("Segoe UI", 15f, FontStyle.Bold), ForeColor = TXT };
+            lblHStatus = new Label { Location = new Point(12, 44), AutoSize = true, Font = new Font("Segoe UI", 9f), ForeColor = TXT_S };
+            hBar = new ProgressBar2 { Location = new Point(12, 62), Width = 260, Height = 6 };
+            lblHPct = new Label { Location = new Point(280, 57), AutoSize = true, Font = new Font("Segoe UI", 9f), ForeColor = TXT_S };
 
             lblCDate = MakeChip("설치예정일");
             lblCManager = MakeChip("원격담당자");
@@ -300,7 +307,7 @@ namespace PosSetupManager.Forms
             int[] ws = { 100, 100, 148, 112, 80 };
             tabLabels = new Label[5];
             tabBars = new Panel[5];
-            int x = 16;
+            int x = 32;
             for (int i = 0; i < 5; i++)
             {
                 int idx = i;
@@ -436,17 +443,17 @@ namespace PosSetupManager.Forms
                 Location = new Point(0, y),
                 BackColor = SURFACE,
                 Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Top,
-                Width = page.ClientSize.Width > 20 ? page.ClientSize.Width : 700
+                Width = page.ClientSize.Width > 20 ? page.ClientSize.Width - 4 : 700
             };
             page.Controls.Add(card);
-            page.Resize += (s, e) => { card.Width = page.ClientSize.Width > 20 ? page.ClientSize.Width : 700; };
+            page.Resize += (s, e) => { card.Width = page.ClientSize.Width > 20 ? page.ClientSize.Width - 4 : 700; };
             y += 8;
             return card;
         }
 
         private Panel MakeScrollContent(Panel page)
         {
-            var inner = new Panel { Dock = DockStyle.Fill, AutoScroll = true, BackColor = BG, Padding = new Padding(20, 16, 20, 16) };
+            var inner = new Panel { Dock = DockStyle.Fill, AutoScroll = true, BackColor = BG, Padding = new Padding(20, 20, 20, 20) };
             page.Controls.Add(inner);
             return inner;
         }
@@ -473,12 +480,14 @@ namespace PosSetupManager.Forms
             txtStoreName = AddRTB(card, 0, cy, 204);
             txtStoreName.TextChanged += (s, e) => { AutoSave(); RefreshStoreList(); };
             dtpInstallDate = new RoundDateTimePicker { Location = new Point(220, cy), Width = 210, Height = 42, Format = DateTimePickerFormat.Short };
+            dtpInstallDate.Inner.Value = DateTime.Today;
             card.Controls.Add(dtpInstallDate);
             txtInstallTime = AddRTB(card, 450, cy, 140); cy += 50;
 
-            // 행2: 원격담당자
-            AddFL(card, "원격 담당자", 0, cy); cy += 22;
-            txtRemoteManager = AddRTB(card, 0, cy, 204); cy += 50;
+            // 행2: 원격담당자 / 엔지니어 연락처
+            AddFL(card, "원격 담당자", 0, cy); AddFL(card, "엔지니어 연락처", 216, cy); cy += 22;
+            txtRemoteManager = AddRTB(card, 0, cy, 204);
+            txtEngineerContact = AddRTB(card, 216, cy, 180); cy += 50;
 
             AddDivider(card, cy); cy += 20;
 
@@ -490,10 +499,22 @@ namespace PosSetupManager.Forms
             txtEndTime = AddRTB(card, 220, cy, 200);
             txtLinkEndTime = AddRTB(card, 450, cy, 160); cy += 50;
 
-            AddFL(card, "소요시간 (자동계산)", 0, cy); cy += 22;
+            AddFL(card, "소요시간 (자동계산)", 0, cy); AddFL(card, "테이블 모드", 220, cy); cy += 22;
             txtElapsedTime = AddRTB(card, 0, cy, 160);
             txtElapsedTime.ReadOnly = true;
-            txtElapsedTime.BackColor = Color.FromArgb(245, 245, 245); cy += 50;
+            txtElapsedTime.BackColor = Color.FromArgb(245, 245, 245);
+
+            // 테이블 모드 라디오버튼 (소요시간 옆)
+            rbTablePost = new RadioButton { Text = "후불", Location = new Point(220, cy + 9), AutoSize = true, Font = FluentFonts.Body };
+            rbTablePre = new RadioButton { Text = "선불", Location = new Point(286, cy + 9), AutoSize = true, Font = FluentFonts.Body };
+            rbTableNone = new RadioButton { Text = "비연동", Location = new Point(352, cy + 9), AutoSize = true, Font = FluentFonts.Body };
+            GroupRBs(rbTablePost, rbTablePre, rbTableNone);
+            rbTablePre.CheckedChanged += (s2, e2) => { if (pnlPrepaid != null) pnlPrepaid.Visible = rbTablePre.Checked; };
+            rbTablePost.CheckedChanged += (s2, e2) => { AutoSave(); RefreshStoreList(); };
+            rbTablePre.CheckedChanged += (s2, e2) => { AutoSave(); RefreshStoreList(); };
+            rbTableNone.CheckedChanged += (s2, e2) => { AutoSave(); RefreshStoreList(); };
+            card.Controls.AddRange(new Control[] { rbTablePost, rbTablePre, rbTableNone });
+            cy += 50;
 
             txtStartTime.Leave += (s, e) => { txtStartTime.Text = FmtT(txtStartTime.Text); UpdateElapsed(); UpdateStartBtn(); };
             txtEndTime.Leave += (s, e) => { txtEndTime.Text = FmtT(txtEndTime.Text); UpdateElapsed(); UpdateStartBtn(); };
@@ -569,12 +590,7 @@ namespace PosSetupManager.Forms
             cy += (int)Math.Ceiling(pns.Length / 4.0) * 30 + 8;
             c4.Height = cy + 20; y += c4.Height + 16;
 
-            var c5 = MakeCard(inner, ref y); cy = 0;
-            c5.Controls.Add(new Label { Text = "테이블 모드", Font = new Font("Segoe UI", 11f, FontStyle.Bold), ForeColor = TXT, Location = new Point(0, cy), AutoSize = true }); cy += 36;
-            rbTablePost = AddRB(c5, "후불", 0, cy); rbTablePre = AddRB(c5, "선불", 90, cy); rbTableNone = AddRB(c5, "비연동", 180, cy); cy += 34;
-            GroupRBs(rbTablePost, rbTablePre, rbTableNone);
-            rbTablePre.CheckedChanged += (s, e) => { if (pnlPrepaid != null) pnlPrepaid.Visible = rbTablePre.Checked; };
-            c5.Height = cy + 20;
+            // 테이블 모드는 기본정보 탭으로 이동
         }
 
         // ═══════════════════════════════
@@ -647,8 +663,6 @@ namespace PosSetupManager.Forms
         // ═══════════════════════════════
         // 탭4: 체크리스트
         // ═══════════════════════════════
-        private Panel _checklistContainer; // OX 행들을 담는 컨테이너
-
         private void BuildTabChecklist(Panel c)
         {
             var page = MakePage(c, 3);
@@ -777,7 +791,7 @@ namespace PosSetupManager.Forms
             oxSyncOrder = makeOX("동기화 및 주문테스트 출력");
 
             // 선불 패널
-            pnlPrepaid = new Panel { Size = new Size(660, 88), BackColor = Color.FromArgb(235, 245, 255), Visible = false, Margin = new Padding(0, 4, 0, 4) };
+            pnlPrepaid = new Panel { Height = 96, BackColor = Color.FromArgb(235, 245, 255), Visible = false, Margin = new Padding(0, 4, 0, 4) };
             pnlPrepaid.Paint += (s, e) =>
             {
                 e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
@@ -788,11 +802,14 @@ namespace PosSetupManager.Forms
                 }
                 TextRenderer.DrawText(e.Graphics, "★ 선불 매장인 경우", new Font("Segoe UI", 9f, FontStyle.Bold), new Rectangle(12, 4, 300, 22), ACCENT, TextFormatFlags.Left);
             };
+            // 체크박스 2행으로 배치 (너비 제한으로 인해)
             chkPrepaidTable = new CheckBox { Text = "선후불 테이블 확인", Location = new Point(12, 28), AutoSize = true, Font = FluentFonts.Body };
-            chkPrepaidPayment = new CheckBox { Text = "결제&취소 주문확인", Location = new Point(190, 28), AutoSize = true, Font = FluentFonts.Body };
-            chkPrepaid5Man = new CheckBox { Text = "5만원이상 테스트 결제 진행", Location = new Point(360, 28), AutoSize = true, Font = FluentFonts.Body };
-            chkPrepaidKSNET = new CheckBox { Text = "KSNET(카드결제 테스트진행)", Location = new Point(12, 58), AutoSize = true, Font = FluentFonts.Body };
+            chkPrepaidPayment = new CheckBox { Text = "결제&취소 주문확인", Location = new Point(12, 56), AutoSize = true, Font = FluentFonts.Body };
+            chkPrepaid5Man = new CheckBox { Text = "5만원이상 테스트 결제 진행", Location = new Point(200, 28), AutoSize = true, Font = FluentFonts.Body };
+            chkPrepaidKSNET = new CheckBox { Text = "KSNET(카드결제 테스트진행)", Location = new Point(200, 56), AutoSize = true, Font = FluentFonts.Body };
             pnlPrepaid.Controls.AddRange(new Control[] { chkPrepaidTable, chkPrepaidPayment, chkPrepaid5Man, chkPrepaidKSNET });
+            cf.Resize += (s2, e2) => { pnlPrepaid.Width = cf.ClientSize.Width - 32; };
+            pnlPrepaid.Width = 700;
             cf.Controls.Add(pnlPrepaid);
 
             cf.Controls.Add(new Panel { Height = 1, Width = 600, BackColor = BORDER, Margin = new Padding(0, 8, 0, 8) });
@@ -818,7 +835,21 @@ namespace PosSetupManager.Forms
             oxMenuBoardVer = makeOX("메뉴판 Ver 확인");
             oxMenuBoardAuto = makeOX("매니저 자동실행 설정 (작업 스케줄러)");
             oxCoupon = makeOX("쿠폰 생성 여부");
-            oxCoupon.OnChanged += v => { if (pnlCouponX != null) pnlCouponX.Visible = (v == "X"); };
+            oxCoupon.OnChanged += v =>
+            {
+                if (pnlCouponX != null) pnlCouponX.Visible = (v == "X");
+                if (pnlCouponXChecklist != null) pnlCouponXChecklist.Visible = (v == "X");
+            };
+
+            // 쿠폰 X 사유 (체크리스트 탭 내)
+            pnlCouponXChecklist = new Panel { Height = 46, BackColor = SURFACE, Margin = new Padding(0, 2, 0, 2) };
+            pnlCouponXChecklist.Controls.Add(new Label { Text = "쿠폰생성 X 사유", Location = new Point(0, 12), AutoSize = true, Font = FluentFonts.Body });
+            txtCouponXReasonChecklist = new RoundTextBox { Location = new Point(150, 4), Width = 200, Height = 38 };
+            pnlCouponXChecklist.Controls.Add(txtCouponXReasonChecklist);
+            cf.Resize += (s2, e2) => { pnlCouponXChecklist.Width = Math.Min(500, cf.ClientSize.Width - 32); txtCouponXReasonChecklist.Width = Math.Min(200, pnlCouponXChecklist.Width - 154); };
+            pnlCouponXChecklist.Width = 700;
+            pnlCouponXChecklist.Visible = false;
+            cf.Controls.Add(pnlCouponXChecklist);
         }
 
         // ═══════════════════════════════
@@ -833,11 +864,10 @@ namespace PosSetupManager.Forms
             var card = MakeCard(inner, ref y); int cy = 0;
             card.Controls.Add(new Label { Text = "완료", Font = new Font("Segoe UI", 11f, FontStyle.Bold), ForeColor = TXT, Location = new Point(0, cy), AutoSize = true }); cy += 36;
 
-            pnlCouponX = new Panel { Location = new Point(0, cy), Height = 42, Width = 660, Visible = false };
-            pnlCouponX.Controls.Add(new Label { Text = "쿠폰생성 X 사유", Location = new Point(0, 10), AutoSize = true, Font = FluentFonts.Body });
+            pnlCouponX = new Panel { Location = new Point(0, cy), Height = 0, Width = 0, Visible = false };
+            //
             txtCouponXReason = new RoundTextBox { Location = new Point(150, 4), Width = 340, Height = 42 };
-            pnlCouponX.Controls.Add(txtCouponXReason);
-            card.Controls.Add(pnlCouponX); cy += 50;
+            card.Controls.Add(pnlCouponX);
 
             card.Controls.Add(new Label { Text = "원격교육 받으실 연락처", Location = new Point(0, cy + 12), AutoSize = true, Font = FluentFonts.Body });
             txtRemoteEduContact = new RoundTextBox { Location = new Point(200, cy), Width = 260, Height = 42 };
@@ -926,7 +956,10 @@ namespace PosSetupManager.Forms
         private void RefreshStoreList()
         {
             pnlStoreList.Controls.Clear();
-            int y = 4;
+            pnlStoreList.AutoScrollPosition = new System.Drawing.Point(0, 0);
+            int y = 8;
+            // 드래그 드롭 활성화
+            pnlStoreList.AllowDrop = true;
 
             // 진행중
             foreach (var s in _workspace.ActiveSessions)
@@ -935,12 +968,49 @@ namespace PosSetupManager.Forms
                 int pct = tot > 0 ? (int)Math.Round(comp * 100.0 / tot) : 0;
                 var item = new TaskCard(ss, pct)
                 {
-                    Location = new Point(0, y),
-                    Width = pnlStoreList.ClientSize.Width > 8 ? pnlStoreList.ClientSize.Width - 8 : 260,
+                    Location = new Point(12, y),
+                    Width = pnlStoreList.Width > 32 ? pnlStoreList.Width - 32 : 260,
                     IsSelected = (_currentSession?.Id == ss.Id)
                 };
+                int ssIdx = _workspace.ActiveSessions.IndexOf(ss);
                 item.Click += (sndr, e) => SelectSession(ss);
                 item.OnDelete += id => { _workspace.RemoveSession(id); if (_currentSession?.Id == id) ClearSession(); RefreshStoreList(); };
+
+                // 마우스 드래그로 순번 변경
+                item.MouseDown += (sndr, e) =>
+                {
+                    if (e.Button == MouseButtons.Left) { _dragItem = item; _dragStartY = e.Y; }
+                };
+                item.MouseMove += (sndr, e) =>
+                {
+                    if (_dragItem != item || e.Button != MouseButtons.Left) return;
+                    if (Math.Abs(e.Y - _dragStartY) < 10) return;
+                    // 현재 아이템 인덱스
+                    int fromIdx = _workspace.ActiveSessions.FindIndex(x => x.Id == ss.Id);
+                    if (fromIdx < 0) return;
+                    // 마우스 Y 절대 좌표 → 목록 내 위치
+                    Point mouseOnList = pnlStoreList.PointToClient(item.PointToScreen(e.Location));
+                    // 어느 아이템 위에 있는지 탐색
+                    int toIdx = fromIdx;
+                    foreach (Control ctrl in pnlStoreList.Controls)
+                    {
+                        if (!(ctrl is TaskCard tc2) || tc2 == item) continue;
+                        var bounds = ctrl.Bounds;
+                        if (mouseOnList.Y >= bounds.Top && mouseOnList.Y < bounds.Bottom)
+                        {
+                            toIdx = _workspace.ActiveSessions.FindIndex(x => x.Id == tc2._sessionId);
+                            break;
+                        }
+                    }
+                    if (toIdx == fromIdx) return;
+                    var tmp = _workspace.ActiveSessions[fromIdx];
+                    _workspace.ActiveSessions.RemoveAt(fromIdx);
+                    _workspace.ActiveSessions.Insert(toIdx, tmp);
+                    _workspace.Save();
+                    RefreshStoreList();
+                    _dragStartY = e.Y;
+                };
+                item.MouseUp += (sndr, e) => { _dragItem = null; };
                 item.OnComplete += id =>
                 {
                     if (MessageBox.Show("완료 처리하시겠습니까?", "완료", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
@@ -949,29 +1019,40 @@ namespace PosSetupManager.Forms
                     if (_currentSession?.Id == id) ClearSession();
                     RefreshStoreList();
                 };
-                pnlStoreList.Controls.Add(item); y += item.Height + 8;
+                item.OnMoveUp += id =>
+                {
+                    int idx = _workspace.ActiveSessions.FindIndex(x => x.Id == id);
+                    if (idx > 0) { var tmp = _workspace.ActiveSessions[idx]; _workspace.ActiveSessions[idx] = _workspace.ActiveSessions[idx - 1]; _workspace.ActiveSessions[idx - 1] = tmp; _workspace.Save(); RefreshStoreList(); }
+                };
+                item.OnMoveDown += id =>
+                {
+                    int idx = _workspace.ActiveSessions.FindIndex(x => x.Id == id);
+                    if (idx < _workspace.ActiveSessions.Count - 1) { var tmp = _workspace.ActiveSessions[idx]; _workspace.ActiveSessions[idx] = _workspace.ActiveSessions[idx + 1]; _workspace.ActiveSessions[idx + 1] = tmp; _workspace.Save(); RefreshStoreList(); }
+                };
+                pnlStoreList.Controls.Add(item); y += item.Height + 12;
             }
 
-            // 완료 구분선
-            y += 4;
-            pnlStoreList.Controls.Add(new Label { Text = "완료", Font = new Font("Segoe UI", 8.5f, FontStyle.Bold), ForeColor = TXT_M, Location = new Point(4, y), AutoSize = true }); y += 22;
-
-            // 날짜 필터 적용
-            var filtered = _filterAll
+            // 완료 구분선 - 완료 세션이 있을 때만 표시
+            var filtered_check = _filterAll
                 ? _workspace.CompletedSessions
                 : _workspace.CompletedSessions.FindAll(x =>
                     x.CompletedAt.HasValue &&
                     x.CompletedAt.Value.Date >= dtpFilterFrom.Value.Date &&
                     x.CompletedAt.Value.Date <= dtpFilterTo.Value.Date);
+            if (filtered_check.Count > 0)
+            {
+                y += 12;
+                pnlStoreList.Controls.Add(new Label { Text = "완료", Font = new Font("Segoe UI", 8.5f, FontStyle.Bold), ForeColor = TXT_M, Location = new Point(4, y), AutoSize = true }); y += 22;
+            }
 
-            foreach (var s in filtered)
+            foreach (var s in filtered_check)
             {
                 var ss = s; int comp, tot; CalcProg(ss.Data, out comp, out tot);
                 int pct = tot > 0 ? (int)Math.Round(comp * 100.0 / tot) : 0;
                 var item = new TaskCard(ss, pct)
                 {
-                    Location = new Point(0, y),
-                    Width = pnlStoreList.ClientSize.Width > 8 ? pnlStoreList.ClientSize.Width - 8 : 260,
+                    Location = new Point(12, y),
+                    Width = pnlStoreList.Width > 32 ? pnlStoreList.Width - 32 : 260,
                     IsSelected = (_currentSession?.Id == ss.Id)
                 };
                 item.Click += (sndr, e) => SelectSession(ss);
@@ -982,8 +1063,12 @@ namespace PosSetupManager.Forms
                     var f = _workspace.CompletedSessions.Find(x => x.Id == id);
                     if (f != null) { f.Status = "작성중"; f.CompletedAt = null; _workspace.CompletedSessions.Remove(f); _workspace.ActiveSessions.Add(f); _workspace.Save(); RefreshStoreList(); }
                 };
-                pnlStoreList.Controls.Add(item); y += item.Height + 8;
+                pnlStoreList.Controls.Add(item); y += item.Height + 12;
             }
+
+            // 스크롤 강제 활성화
+            pnlStoreList.AutoScrollMinSize = new System.Drawing.Size(0, 0);
+            pnlStoreList.AutoScrollMinSize = new System.Drawing.Size(0, y + 200);
         }
 
         private bool _isLoading = false;
@@ -996,6 +1081,10 @@ namespace PosSetupManager.Forms
             lblNoSession.Visible = false;
             pnlHeaderCard.Visible = pnlTabs.Visible = pnlSidebar.Visible = true;
             foreach (var p in tabPages) if (p != null) p.Visible = false;
+            // 버튼 상태 초기화
+            if (btnRegister != null) { btnRegister.Text = "🌐  다우오피스 자동 등록"; btnRegister.Enabled = true; }
+            if (btnStart != null) { btnStart.Enabled = true; }
+            if (btnFinish != null) { btnFinish.Enabled = false; }
             SwitchTab(0); RefreshHeader(); RefreshStoreList();
         }
 
@@ -1016,6 +1105,7 @@ namespace PosSetupManager.Forms
             txtStoreName.Text = d.Basic.StoreName;
             if (d.Basic.InstallDate.HasValue) dtpInstallDate.Inner.Value = d.Basic.InstallDate.Value;
             txtInstallTime.Text = d.Basic.InstallTime; txtRemoteManager.Text = d.Basic.RemoteManager;
+            if (txtEngineerContact != null) txtEngineerContact.Text = d.Basic.EngineerContact;
             txtStartTime.Text = d.Basic.StartTime; txtEndTime.Text = d.Basic.EndTime;
             txtLinkEndTime.Text = d.Basic.LinkEndTime; txtElapsedTime.Text = d.Basic.ElapsedTime;
 
@@ -1024,7 +1114,10 @@ namespace PosSetupManager.Forms
             SR(rbAdminSame, d.Pos.RemoteAdmin == "동일"); SR(rbAdminDiff, d.Pos.RemoteAdmin == "다름");
             SR(rbLmmOk, d.Pos.LmmAccount == "O"); SR(rbLmmFail, d.Pos.LmmAccount == "X");
             foreach (var kv in chkPosTypes) kv.Value.Checked = d.Pos.PosTypes.Contains(kv.Key);
-            SR(rbTablePost, d.Pos.TableMode == "후불"); SR(rbTablePre, d.Pos.TableMode == "선불"); SR(rbTableNone, d.Pos.TableMode == "비연동");
+            // TableMode는 Basic과 Pos 양쪽 모두 저장
+            SR(rbTablePost, d.Basic.TableMode == "후불" || d.Pos.TableMode == "후불");
+            SR(rbTablePre, d.Basic.TableMode == "선불" || d.Pos.TableMode == "선불");
+            SR(rbTableNone, d.Basic.TableMode == "비연동" || d.Pos.TableMode == "비연동");
 
             txtRouterKT.Text = d.Network.RouterKT; txtRouterLG.Text = d.Network.RouterLG;
             txtRouterSK.Text = d.Network.RouterSK; txtRouterIpTime.Text = d.Network.RouterIpTime; txtRouterEtc.Text = d.Network.RouterEtc;
@@ -1042,8 +1135,10 @@ namespace PosSetupManager.Forms
             oxMenuImage.SetValue(d.Checklist.CheckMenuImage); oxNoticeBoardVer.SetValue(d.Checklist.CheckNoticeBoardVer);
             oxNoticeBoardAdmin.SetValue(d.Checklist.CheckNoticeBoardAdmin); oxMenuBoardVer.SetValue(d.Checklist.CheckMenuBoardVer);
             oxMenuBoardAuto.SetValue(d.Checklist.CheckMenuBoardAutoRun); oxCoupon.SetValue(d.Checklist.CheckCoupon);
-            txtCouponXReason.Text = d.Finish.CouponXReason; txtRemoteEduContact.Text = d.Finish.RemoteEduContact; txtInstallIssue.Text = d.Finish.InstallIssue;
+            txtCouponXReason.Text = d.Finish.CouponXReason;
+            if (txtCouponXReasonChecklist != null) txtCouponXReasonChecklist.Text = d.Finish.CouponXReason; txtRemoteEduContact.Text = d.Finish.RemoteEduContact; txtInstallIssue.Text = d.Finish.InstallIssue;
             if (pnlCouponX != null) pnlCouponX.Visible = d.Checklist.CheckCoupon == "X";
+            if (pnlCouponXChecklist != null) pnlCouponXChecklist.Visible = d.Checklist.CheckCoupon == "X";
             if (pnlPrepaid != null) pnlPrepaid.Visible = d.Pos.TableMode == "선불";
         }
 
@@ -1056,15 +1151,18 @@ namespace PosSetupManager.Forms
         private void Save2Ses(StoreSession ss)
         {
             var d = ss.Data;
-            d.Basic.StoreName = txtStoreName.Text; d.Basic.InstallDate = dtpInstallDate.Inner.Value;
+            d.Basic.StoreName = txtStoreName.Text; if (dtpInstallDate != null) d.Basic.InstallDate = dtpInstallDate.Inner.Value;
             d.Basic.InstallTime = txtInstallTime.Text; d.Basic.RemoteManager = txtRemoteManager.Text;
+            if (txtEngineerContact != null) d.Basic.EngineerContact = txtEngineerContact.Text;
             d.Basic.StartTime = txtStartTime.Text; d.Basic.EndTime = txtEndTime.Text;
             d.Basic.LinkEndTime = txtLinkEndTime.Text; d.Basic.ElapsedTime = txtElapsedTime.Text;
             d.Pos.RemoteAccount = rbLMM.Checked ? "LMM" : rbChrome.Checked ? "크롬" : rbSitrom.Checked ? "씨트롬" : rbRemoteEtc.Checked ? "기타" : "";
             d.Pos.RemoteAdmin = rbAdminSame.Checked ? "동일" : rbAdminDiff.Checked ? "다름" : "";
             d.Pos.LmmAccount = rbLmmOk.Checked ? "O" : rbLmmFail.Checked ? "X" : "";
             d.Pos.PosTypes.Clear(); foreach (var kv in chkPosTypes) if (kv.Value.Checked) d.Pos.PosTypes.Add(kv.Key);
-            d.Pos.TableMode = rbTablePost.Checked ? "후불" : rbTablePre.Checked ? "선불" : rbTableNone.Checked ? "비연동" : "";
+            string tableMode = (rbTablePost != null && rbTablePost.Checked) ? "후불" : (rbTablePre != null && rbTablePre.Checked) ? "선불" : (rbTableNone != null && rbTableNone.Checked) ? "비연동" : "";
+            d.Pos.TableMode = tableMode;
+            d.Basic.TableMode = tableMode;
             d.Network.RouterKT = txtRouterKT.Text; d.Network.RouterLG = txtRouterLG.Text;
             d.Network.RouterSK = txtRouterSK.Text; d.Network.RouterIpTime = txtRouterIpTime.Text; d.Network.RouterEtc = txtRouterEtc.Text;
             d.Network.WifiAccount = txtWifiAccount.Text; d.Network.MainPosInternalIP = txtMainPosIP.Text;
@@ -1080,7 +1178,7 @@ namespace PosSetupManager.Forms
             d.Checklist.CheckMenuImage = oxMenuImage.Value; d.Checklist.CheckNoticeBoardVer = oxNoticeBoardVer.Value;
             d.Checklist.CheckNoticeBoardAdmin = oxNoticeBoardAdmin.Value; d.Checklist.CheckMenuBoardVer = oxMenuBoardVer.Value;
             d.Checklist.CheckMenuBoardAutoRun = oxMenuBoardAuto.Value; d.Checklist.CheckCoupon = oxCoupon.Value;
-            d.Finish.CouponXReason = txtCouponXReason.Text; d.Finish.RemoteEduContact = txtRemoteEduContact.Text; d.Finish.InstallIssue = txtInstallIssue.Text;
+            d.Finish.CouponXReason = string.IsNullOrEmpty(txtCouponXReason.Text) && txtCouponXReasonChecklist != null ? txtCouponXReasonChecklist.Text : txtCouponXReason.Text; d.Finish.RemoteEduContact = txtRemoteEduContact.Text; d.Finish.InstallIssue = txtInstallIssue.Text;
         }
 
         public ChecklistData GetData() { if (_currentSession == null) return new ChecklistData(); Save2Ses(_currentSession); return _currentSession.Data; }
@@ -1264,7 +1362,7 @@ namespace PosSetupManager.Forms
             parent.Controls.Add(wrap);
         }
 
-        private void SR(RadioButton rb, bool v) { rb.Checked = v; }
+        private void SR(RadioButton rb, bool v) { if (rb != null) rb.Checked = v; }
 
         // 둥근 사각형 경로
         private static GraphicsPath RR(Rectangle r, int rad)
@@ -1314,9 +1412,12 @@ namespace PosSetupManager.Forms
     public class TaskCard : UserControl
     {
         public bool IsSelected { get; set; }
+        public string _sessionId; // 드래그용
         public event Action<string> OnDelete;
         public event Action<string> OnComplete;
         public event Action<string> OnRestore;
+        public event Action<string> OnMoveUp;
+        public event Action<string> OnMoveDown;
         private StoreSession _s;
         private int _pct;
         private bool _hover = false;
@@ -1331,8 +1432,8 @@ namespace PosSetupManager.Forms
 
         public TaskCard(StoreSession session, int percent)
         {
-            _s = session; _pct = percent;
-            Height = 86; Cursor = Cursors.Hand;
+            _s = session; _pct = percent; _sessionId = session.Id;
+            Height = 96; Cursor = Cursors.SizeAll;
             SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.DoubleBuffer, true);
 
             // 삭제 버튼
@@ -1344,14 +1445,16 @@ namespace PosSetupManager.Forms
             if (session.Status != "완료")
             {
                 var done = new Label { Text = "완료처리", Font = new Font("Segoe UI", 7.5f), ForeColor = ACC, AutoSize = true, TextAlign = ContentAlignment.MiddleCenter, Cursor = Cursors.Hand, BorderStyle = BorderStyle.FixedSingle };
-                done.Location = new Point(Width - 68, 62); done.Anchor = AnchorStyles.Right | AnchorStyles.Top;
+                done.Location = new Point(Width - 68, 70); done.Anchor = AnchorStyles.Right | AnchorStyles.Top;
                 done.Click += (s, e) => OnComplete?.Invoke(_s.Id);
                 Controls.Add(done);
+
+
             }
             else
             {
                 var rest = new Label { Text = "복구", Font = new Font("Segoe UI", 7.5f), ForeColor = TS, AutoSize = true, TextAlign = ContentAlignment.MiddleCenter, Cursor = Cursors.Hand, BorderStyle = BorderStyle.FixedSingle };
-                rest.Location = new Point(Width - 52, 62); rest.Anchor = AnchorStyles.Right | AnchorStyles.Top;
+                rest.Location = new Point(Width - 52, 70); rest.Anchor = AnchorStyles.Right | AnchorStyles.Top;
                 rest.Click += (s, e) => OnRestore?.Invoke(_s.Id);
                 Controls.Add(rest);
             }
@@ -1379,8 +1482,12 @@ namespace PosSetupManager.Forms
             var statC = done ? GRN : YLW;
             e.Graphics.FillEllipse(new SolidBrush(statC), new Rectangle(12, 18, 9, 9));
 
-            // 매장명
-            TextRenderer.DrawText(e.Graphics, _s.DisplayName, new Font("Segoe UI", 9.5f, FontStyle.Bold), new Rectangle(26, 8, Width - 56, 22), TM, TextFormatFlags.Left | TextFormatFlags.EndEllipsis);
+            // 매장명 + 테이블모드 뱃지
+            string displayName = _s.DisplayName;
+            string tm = _s.Data?.Basic?.TableMode ?? _s.Data?.Pos?.TableMode ?? "";
+            if (tm == "선불" || tm == "후불")
+                displayName += string.Format("  ({0})", tm);
+            TextRenderer.DrawText(e.Graphics, displayName, new Font("Segoe UI", 9.5f, FontStyle.Bold), new Rectangle(26, 8, Width - 56, 22), TM, TextFormatFlags.Left | TextFormatFlags.EndEllipsis);
 
             // 상태 텍스트 + 진행률 숫자
             TextRenderer.DrawText(e.Graphics, done ? "완료" : "작성중", new Font("Segoe UI", 8.5f), new Rectangle(26, 30, 60, 16), statC, TextFormatFlags.Left);
@@ -1393,7 +1500,7 @@ namespace PosSetupManager.Forms
             if (filled > 0) e.Graphics.FillRectangle(new SolidBrush(ACC), new Rectangle(barR.X, barR.Y, filled, barR.Height));
 
             // 날짜/시간
-            TextRenderer.DrawText(e.Graphics, _s.CreatedAt.ToString("MM/dd HH:mm"), new Font("Segoe UI", 8f), new Rectangle(10, 64, 120, 16), TS, TextFormatFlags.Left);
+            TextRenderer.DrawText(e.Graphics, _s.CreatedAt.ToString("MM/dd HH:mm"), new Font("Segoe UI", 8f), new Rectangle(10, 72, 120, 16), TS, TextFormatFlags.Left);
         }
 
         private string GetInitials(string name)

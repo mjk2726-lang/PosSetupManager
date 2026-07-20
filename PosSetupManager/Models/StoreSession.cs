@@ -25,5 +25,6 @@ namespace PosSetupManager.Models
         }
 
         public string StatusIcon => Status == "완료" ? "🟢" : "🟡";
+        public int SortOrder { get; set; } = 0; // 순번
     }
 }
