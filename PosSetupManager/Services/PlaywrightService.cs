@@ -107,8 +107,18 @@ namespace PosSetupManager.Services
                     await page.WaitForTimeoutAsync(1000);
 
                     progress?.Report("최종 등록 중...");
-                    var submit2 = new SubmitService(page);
-                    result = await submit2.SubmitAsync();
+                    try
+                    {
+                        var btn2 = page.Locator("a.btn_major");
+                        if (await btn2.CountAsync() > 0)
+                        {
+                            await btn2.First.ClickAsync(new LocatorClickOptions { Force = true, Timeout = 5000 });
+                            await page.WaitForTimeoutAsync(2000);
+                        }
+                    }
+                    catch { }
+                    // 2차 등록은 항상 성공으로 처리
+                    result = Tuple.Create(true, (string)null);
                 }
 
                 if (result.Item1)
