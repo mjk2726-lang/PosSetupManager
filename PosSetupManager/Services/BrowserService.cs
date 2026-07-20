@@ -7,38 +7,48 @@ namespace PosSetupManager.Services
 {
     public class BrowserService
     {
+        // 세션 데이터: EXE 옆 BrowserProfile 폴더
         public static readonly string UserDataDir = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "PosSetupManager", "BrowserProfile");
+            Path.GetDirectoryName(System.Windows.Forms.Application.ExecutablePath),
+            "BrowserProfile");
 
-        // ── 싱글턴 ──
         private static IPlaywright _playwright;
         private static IBrowserContext _context;
 
         public static IBrowserContext Context => _context;
 
-        // 브라우저가 이미 실행 중이면 재사용, 아니면 새로 실행
         public static async Task EnsureLaunchedAsync()
         {
             if (_context != null)
             {
                 try
                 {
-                    // 실제로 살아있는지 새 페이지 생성으로 확인
                     var testPage = await _context.NewPageAsync();
                     await testPage.CloseAsync();
                     return;
                 }
                 catch
                 {
-                    // 죽어있으면 초기화
                     _context = null;
                     try { _playwright?.Dispose(); } catch { }
                     _playwright = null;
                 }
             }
 
+            // EXE 옆 .playwright 폴더를 Playwright 드라이버로 지정
+            string exeDir = Path.GetDirectoryName(System.Windows.Forms.Application.ExecutablePath);
+            string localNodePath = Path.Combine(exeDir, ".playwright", "node", "win32_x64", "node.exe");
+
+            if (File.Exists(localNodePath))
+            {
+                // EXE 옆 .playwright 폴더 사용
+                Environment.SetEnvironmentVariable("PLAYWRIGHT_NODEJS_PATH", localNodePath);
+                Environment.SetEnvironmentVariable("PLAYWRIGHT_DRIVER_PATH",
+                    Path.Combine(exeDir, ".playwright", "package", "cli.js"));
+            }
+
             _playwright = await Playwright.CreateAsync();
+
             var options = new BrowserTypeLaunchPersistentContextOptions
             {
                 Headless = false,
@@ -47,10 +57,10 @@ namespace PosSetupManager.Services
                 ViewportSize = null,
                 Args = new[] { "--start-maximized" }
             };
+
             _context = await _playwright.Chromium.LaunchPersistentContextAsync(UserDataDir, options);
         }
 
-        // 매장마다 새 탭 생성
         public static async Task<IPage> NewPageAsync()
         {
             await EnsureLaunchedAsync();
