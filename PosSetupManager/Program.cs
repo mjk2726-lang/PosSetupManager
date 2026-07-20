@@ -11,6 +11,8 @@ namespace PosSetupManager
         {
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
+            // 앱 시작 시 설정 로드
+            SettingsDialog.LoadSettingsFile();
             Application.Run(new MainForm());
         }
     }

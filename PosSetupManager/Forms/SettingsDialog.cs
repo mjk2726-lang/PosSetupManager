@@ -8,6 +8,7 @@ namespace PosSetupManager.Forms
     public class SettingsDialog : Form
     {
         private TextBox txtId, txtPw, txtSavePath;
+        private CheckBox chkAutoReport;
         private FluentButton btnSave, btnCancel, btnBrowse;
 
         private static readonly string SettingsFile = Path.Combine(
@@ -17,7 +18,7 @@ namespace PosSetupManager.Forms
         public SettingsDialog()
         {
             this.Text = "설정";
-            this.Size = new Size(420, 300);
+            this.Size = new Size(420, 360);
             this.StartPosition = FormStartPosition.CenterParent;
             this.FormBorderStyle = FormBorderStyle.FixedDialog;
             this.MaximizeBox = false;
@@ -47,11 +48,25 @@ namespace PosSetupManager.Forms
 
             var lblPath = new Label { Text = "저장 폴더", Location = new Point(24, y), AutoSize = true, ForeColor = FluentColors.TextSecond, Font = FluentFonts.Caption };
             this.Controls.Add(lblPath); y += 18;
-
             txtSavePath = new TextBox { Location = new Point(24, y), Width = 280, BorderStyle = BorderStyle.FixedSingle, Font = FluentFonts.Body };
             btnBrowse = new FluentButton { Text = "찾아보기", Location = new Point(312, y - 1), Width = 68, Height = 26, IsPrimary = false };
             btnBrowse.Click += BtnBrowse_Click;
             this.Controls.AddRange(new Control[] { txtSavePath, btnBrowse }); y += 44;
+
+            // ── 메모장 자동 생성 ──
+            var lblSection3 = new Label { Text = "기타 설정", Font = FluentFonts.BodyBold, ForeColor = FluentColors.TextSecond, Location = new Point(24, y), AutoSize = true };
+            this.Controls.Add(lblSection3); y += 24;
+
+            chkAutoReport = new CheckBox
+            {
+                Text = "다우오피스 등록 완료 시 메모장 자동 생성",
+                Location = new Point(24, y),
+                AutoSize = true,
+                Font = FluentFonts.Body,
+                ForeColor = FluentColors.TextPrimary,
+                Checked = true
+            };
+            this.Controls.Add(chkAutoReport); y += 36;
 
             // ── 버튼 ──
             btnSave = new FluentButton { Text = "저장", IsPrimary = true, Location = new Point(24, y), Width = 170 };
@@ -76,10 +91,9 @@ namespace PosSetupManager.Forms
         {
             if (!string.IsNullOrWhiteSpace(txtId.Text) && !string.IsNullOrWhiteSpace(txtPw.Text))
                 CredentialStore.Save(txtId.Text.Trim(), txtPw.Text);
-
             SavePath = txtSavePath.Text;
+            AutoReportEnabled = chkAutoReport.Checked;
             SaveSettings();
-
             this.DialogResult = DialogResult.OK;
             this.Close();
         }
@@ -91,29 +105,33 @@ namespace PosSetupManager.Forms
                 txtId.Text = id;
                 txtPw.Text = pw;
             }
-            txtSavePath.Text = LoadSavePath();
+            LoadSettingsFile();
+            txtSavePath.Text = SavePath ?? "";
+            chkAutoReport.Checked = AutoReportEnabled;
         }
 
-        // ── 저장 경로 관리 ──
+        // ── 설정 관리 ──
         public static string SavePath { get; private set; }
+        public static bool AutoReportEnabled { get; private set; } = true;
 
         public static string GetSavePath()
         {
-            var path = LoadSavePath();
-            return string.IsNullOrEmpty(path)
+            return string.IsNullOrEmpty(SavePath)
                 ? Environment.GetFolderPath(Environment.SpecialFolder.Desktop)
-                : path;
+                : SavePath;
         }
 
-        private static string LoadSavePath()
+        public static void LoadSettingsFile()
         {
             try
             {
-                if (File.Exists(SettingsFile))
-                    return File.ReadAllText(SettingsFile).Trim();
+                if (!File.Exists(SettingsFile)) return;
+                var content = File.ReadAllText(SettingsFile).Trim();
+                var parts = content.Split('|');
+                SavePath = parts[0];
+                AutoReportEnabled = parts.Length < 2 || parts[1] != "false";
             }
             catch { }
-            return "";
         }
 
         private void SaveSettings()
@@ -121,7 +139,8 @@ namespace PosSetupManager.Forms
             try
             {
                 Directory.CreateDirectory(Path.GetDirectoryName(SettingsFile));
-                File.WriteAllText(SettingsFile, txtSavePath.Text);
+                File.WriteAllText(SettingsFile,
+                    (SavePath ?? "") + "|" + (AutoReportEnabled ? "true" : "false"));
             }
             catch { }
         }
