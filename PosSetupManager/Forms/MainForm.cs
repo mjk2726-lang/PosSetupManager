@@ -125,12 +125,25 @@ namespace PosSetupManager.Forms
             Font = new Font("Segoe UI", 9.5f);
 
             // Fill → Left 순서
-            var right = new Panel { Dock = DockStyle.Fill, BackColor = BG };
-            var left = new Panel { Width = 320, Dock = DockStyle.Left, BackColor = SURFACE };
-            left.Paint += (s, e) => e.Graphics.DrawLine(new Pen(BORDER), left.Width - 1, 0, left.Width - 1, left.Height);
+            var split = new SplitContainer
+            {
+                Dock = DockStyle.Fill,
+                SplitterWidth = 1,
+                Panel1MinSize = 100,
+                Panel2MinSize = 100,
+                BackColor = BORDER
+            };
+            split.Panel1.BackColor = SURFACE;
+            split.Panel2.BackColor = BG;
+            Controls.Add(split);
+            split.SplitterMoved += (s, e) => { }; // 드래그 활성화
+            this.Shown += (s, e) =>
+            {
+                split.SplitterDistance = Math.Max(320, split.Panel1MinSize);
+            };
 
-            Controls.Add(right);
-            Controls.Add(left);
+            var left = split.Panel1;
+            var right = split.Panel2;
             BuildLeft(left);
             BuildRight(right);
         }
@@ -448,15 +461,28 @@ namespace PosSetupManager.Forms
                 Width = page.ClientSize.Width > 20 ? page.ClientSize.Width - 4 : 700
             };
             page.Controls.Add(card);
-            page.Resize += (s, e) => { card.Width = page.ClientSize.Width > 20 ? page.ClientSize.Width - 4 : 700; };
+            page.Resize += (s, e) => { card.Width = Math.Min(page.ClientSize.Width > 20 ? page.ClientSize.Width - 4 : 700, 860); };
             y += 8;
             return card;
         }
 
         private Panel MakeScrollContent(Panel page)
         {
-            var inner = new Panel { Dock = DockStyle.Fill, AutoScroll = true, BackColor = BG, Padding = new Padding(20, 20, 20, 20) };
-            page.Controls.Add(inner);
+            // 외부: 가로 스크롤 없이 세로만
+            var outer = new Panel { Dock = DockStyle.Fill, AutoScroll = false, BackColor = BG };
+            page.Controls.Add(outer);
+
+            // 내부: 고정 너비 900, 세로 스크롤
+            var inner = new Panel
+            {
+                Location = new Point(0, 0),
+                Width = 900,
+                BackColor = BG,
+                Padding = new Padding(20, 20, 20, 20),
+                AutoScroll = true
+            };
+            inner.Dock = DockStyle.Fill;
+            outer.Controls.Add(inner);
             return inner;
         }
 
@@ -981,6 +1007,20 @@ namespace PosSetupManager.Forms
         // ═══════════════════════════════
         // 매장 목록 갱신
         // ═══════════════════════════════
+        private void OnStoreListResize(object sender, EventArgs e)
+        {
+            int w = pnlStoreList.Width > 32 ? pnlStoreList.Width - 32 : 260;
+            foreach (Control ctrl in pnlStoreList.Controls)
+            {
+                if (ctrl is TaskCard)
+                {
+                    ctrl.Width = w;
+                    ctrl.Invalidate();
+                }
+            }
+            pnlStoreList.Refresh();
+        }
+
         private void RefreshStoreList()
         {
             pnlStoreList.Controls.Clear();
@@ -1097,6 +1137,10 @@ namespace PosSetupManager.Forms
             // 스크롤 강제 활성화
             pnlStoreList.AutoScrollMinSize = new System.Drawing.Size(0, 0);
             pnlStoreList.AutoScrollMinSize = new System.Drawing.Size(0, y + 200);
+
+            // 패널 크기 변경 시 아이템 너비 갱신
+            pnlStoreList.Resize -= OnStoreListResize;
+            pnlStoreList.Resize += OnStoreListResize;
         }
 
         private bool _isLoading = false;
@@ -1131,7 +1175,10 @@ namespace PosSetupManager.Forms
         {
             var d = ss.Data;
             txtStoreName.Text = d.Basic.StoreName;
-            if (d.Basic.InstallDate.HasValue) dtpInstallDate.Inner.Value = d.Basic.InstallDate.Value;
+            if (d.Basic.InstallDate.HasValue)
+                dtpInstallDate.Inner.Value = d.Basic.InstallDate.Value;
+            else
+                dtpInstallDate.Inner.Value = DateTime.Today;
             txtInstallTime.Text = d.Basic.InstallTime; txtRemoteManager.Text = d.Basic.RemoteManager;
             if (txtEngineerContact != null) txtEngineerContact.Text = d.Basic.EngineerContact;
             if (txtAttachmentPath != null) txtAttachmentPath.Text = d.Basic.AttachmentPath ?? "";
@@ -1413,7 +1460,7 @@ namespace PosSetupManager.Forms
         public RoundPanel(int radius = 12)
         {
             _radius = radius;
-            SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.DoubleBuffer, true);
+            SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.DoubleBuffer | ControlStyles.ResizeRedraw, true);
         }
 
         protected override void OnPaint(PaintEventArgs e)
@@ -1464,7 +1511,7 @@ namespace PosSetupManager.Forms
         {
             _s = session; _pct = percent; _sessionId = session.Id;
             Height = 96; Cursor = Cursors.SizeAll;
-            SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.DoubleBuffer, true);
+            SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint | ControlStyles.DoubleBuffer | ControlStyles.ResizeRedraw, true);
 
             // 삭제 버튼
             var del = new Label { Text = "✕", Font = new Font("Segoe UI", 9f), ForeColor = TS, Size = new Size(20, 20), TextAlign = ContentAlignment.MiddleCenter, Cursor = Cursors.Hand };
