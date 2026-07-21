@@ -168,18 +168,39 @@ namespace PosSetupManager.Services
         // ── POS 종류 체크박스 ──
         public async Task FillPosTypes(List<string> posTypes)
         {
-            string[] posOrder = {
-                "이지포스","엠포스","스마일포스","오케이포스","메이트포스","배달포스",
-                "K포스","하이픈포스(개통불가)","유니온포스","키움포스","팝스(웨이브포스)","링크포스",
-                "포스마스터(티페이)","퍼스트포스","에어포스","토스포스","포스메이커스(개통불가)",
-                "윙스포스","안시포스","기타","연동안함","타밴","우리밴"
+            // 실제 다우오피스 input id 매핑 (id가 순서와 다름)
+            var posIdMap = new System.Collections.Generic.Dictionary<string, string>
+            {
+                {"이지포스",           "_usvoeowq9_0"},
+                {"엠포스",             "_usvoeowq9_1"},
+                {"스마일포스",         "_usvoeowq9_2"},
+                {"오케이포스",         "_usvoeowq9_3"},
+                {"메이트포스",         "_usvoeowq9_4"},
+                {"배달포스",           "_usvoeowq9_11"},
+                {"K포스",              "_usvoeowq9_12"},
+                {"하이픈포스(개통불가)","_usvoeowq9_9"},
+                {"유니온포스",         "_usvoeowq9_10"},
+                {"키움포스",           "_usvoeowq9_13"},
+                {"팝스(웨이브포스)",   "_usvoeowq9_14"},
+                {"링크포스",           "_usvoeowq9_15"},
+                {"포스마스터(티페이)", "_usvoeowq9_16"},
+                {"퍼스트포스",         "_usvoeowq9_18"},
+                {"에어포스",           "_usvoeowq9_19"},
+                {"토스포스",           "_usvoeowq9_20"},
+                {"포스메이커스(개통불가)","_usvoeowq9_21"},
+                {"윙스포스",           "_usvoeowq9_23"},
+                {"안시포스",           "_usvoeowq9_22"},
+                {"기타",               "_usvoeowq9_5"},
+                {"연동안함",           "_usvoeowq9_6"},
+                {"타밴",               "_usvoeowq9_7"},
+                {"우리밴",             "_usvoeowq9_8"},
             };
 
-            for (int i = 0; i < posOrder.Length; i++)
+            foreach (var posType in posTypes)
             {
-                if (posTypes.Contains(posOrder[i]))
+                if (posIdMap.ContainsKey(posType))
                 {
-                    var sel = string.Format("[data-cid='_usvoeowq9'] label[for='_usvoeowq9_{0}']", i);
+                    var sel = string.Format("label[for='{0}']", posIdMap[posType]);
                     try { await _page.ClickAsync(sel, new PageClickOptions { Timeout = 3000 }); }
                     catch { }
                 }
