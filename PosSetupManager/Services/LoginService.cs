@@ -12,9 +12,11 @@ namespace PosSetupManager.Services
         {
             await page.GotoAsync(TARGET_URL, new PageGotoOptions
             {
-                WaitUntil = WaitUntilState.NetworkIdle,
-                Timeout = 30000
+                WaitUntil = WaitUntilState.DOMContentLoaded,
+                Timeout = 60000
             });
+
+            await page.WaitForTimeoutAsync(1500);
 
             if (!IsLoginPage(page.Url))
                 return Tuple.Create(true, (string)null);
@@ -41,9 +43,11 @@ namespace PosSetupManager.Services
             // 로그인 후 목표 URL 이동
             await page.GotoAsync(TARGET_URL, new PageGotoOptions
             {
-                WaitUntil = WaitUntilState.NetworkIdle,
-                Timeout = 30000
+                WaitUntil = WaitUntilState.DOMContentLoaded,
+                Timeout = 60000
             });
+
+            await page.WaitForTimeoutAsync(1500);
 
             return Tuple.Create(true, (string)null);
         }

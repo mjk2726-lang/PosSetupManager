@@ -1,6 +1,7 @@
 ﻿using Microsoft.Playwright;
 using PosSetupManager.Models;
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace PosSetupManager.Services
@@ -100,7 +101,7 @@ namespace PosSetupManager.Services
                     await page.WaitForTimeoutAsync(1500);
 
                     // 현재 모든 frame URL 로그
-                    foreach (var f in page.Frames)
+                    foreach (var f in page.Frames.ToList())
                         System.Diagnostics.Debug.WriteLine("FRAME: " + f.Name + " | " + f.Url);
 
                     await input.AttachFile(d.Basic.AttachmentPath);
