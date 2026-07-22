@@ -108,7 +108,7 @@ namespace PosSetupManager.Forms
             _workspace = new WorkspaceManager();
             InitializeComponent();
             RefreshStoreList();
-            _autoSaveTimer = new System.Windows.Forms.Timer { Interval = 30000 };
+            _autoSaveTimer = new System.Windows.Forms.Timer { Interval = 10000 };
             _autoSaveTimer.Tick += (s, e) => AutoSave();
             _autoSaveTimer.Start();
             if (_workspace.ActiveSessions.Count > 0)
