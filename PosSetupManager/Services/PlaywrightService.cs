@@ -20,6 +20,18 @@ namespace PosSetupManager.Services
                 var loginResult = await login.EnsureLoggedInAsync(page);
                 if (!loginResult.Item1) return loginResult;
 
+                // 폼이 실제로 렌더링될 때까지 대기
+                try
+                {
+                    await page.WaitForSelectorAsync(
+                        "[data-cid='_zzv3du17w'] input[type='text'], [data-cid='_zzv3du17w'] input.txt",
+                        new PageWaitForSelectorOptions { Timeout = 15000 });
+                }
+                catch
+                {
+                    return Tuple.Create(false, "폼 로드 시간 초과. 다우오피스 페이지를 확인해주세요.");
+                }
+
                 var input = new InputService(page);
 
                 progress?.Report("기본 정보 입력 중...");

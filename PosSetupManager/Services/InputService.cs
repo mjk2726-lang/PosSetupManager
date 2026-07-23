@@ -287,7 +287,11 @@ namespace PosSetupManager.Services
             try
             {
                 await _page.ClickAsync("[data-cid='_98c44zcu9'] .add-btn", new PageClickOptions { Timeout = 3000 });
-                await _page.WaitForTimeoutAsync(800);
+
+                // 팝업의 검색 input이 실제로 나타날 때까지 대기
+                await _page.WaitForSelectorAsync(
+                    "input.input_txt[type='search']",
+                    new PageWaitForSelectorOptions { Timeout = 8000 });
 
                 var searchJs = string.Format(@"
                     var input = document.querySelector('input.input_txt[type=""search""]');
@@ -298,7 +302,11 @@ namespace PosSetupManager.Services
                     }}
                 ", name);
                 await _page.EvaluateAsync(searchJs);
-                await _page.WaitForTimeoutAsync(1500);
+
+                // 검색 결과가 실제로 나타날 때까지 대기
+                await _page.WaitForSelectorAsync(
+                    "div.member",
+                    new PageWaitForSelectorOptions { Timeout = 8000 });
 
                 try
                 {
@@ -315,7 +323,7 @@ namespace PosSetupManager.Services
                     }
                 }
                 catch { }
-                await _page.WaitForTimeoutAsync(500);
+                await _page.WaitForTimeoutAsync(300);
                 await SafeClick("a.btn_layer_x");
                 await _page.WaitForTimeoutAsync(300);
             }

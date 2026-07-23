@@ -168,7 +168,7 @@ namespace PosSetupManager.Forms
             pnlFilter.Paint += (s, e) => e.Graphics.DrawLine(new Pen(BORDER), 0, 0, pnlFilter.Width, 0);
 
             var lblFilter = new Label { Text = "완료내역 날짜 필터", Font = new Font("Segoe UI", 8f, FontStyle.Bold), ForeColor = TXT_S, Location = new Point(10, 6), AutoSize = true };
-            dtpFilterFrom = new DateTimePicker { Location = new Point(10, 24), Width = 120, Format = DateTimePickerFormat.Short, Font = new Font("Segoe UI", 8.5f), Value = DateTime.Today.AddDays(-2) };
+            dtpFilterFrom = new DateTimePicker { Location = new Point(10, 24), Width = 120, Format = DateTimePickerFormat.Short, Font = new Font("Segoe UI", 8.5f), Value = DateTime.Today };
             var lblTo = new Label { Text = "~", Location = new Point(134, 28), AutoSize = true, Font = FluentFonts.Body };
             dtpFilterTo = new DateTimePicker { Location = new Point(148, 24), Width = 120, Format = DateTimePickerFormat.Short, Font = new Font("Segoe UI", 8.5f), Value = DateTime.Today };
 
@@ -515,7 +515,17 @@ namespace PosSetupManager.Forms
             // 행2: 원격담당자 / 엔지니어 연락처
             AddFL(card, "원격 담당자", 0, cy); AddFL(card, "엔지니어 연락처", 216, cy); cy += 22;
             txtRemoteManager = AddRTB(card, 0, cy, 204);
-            txtEngineerContact = AddRTB(card, 216, cy, 180); cy += 50;
+            txtEngineerContact = AddRTB(card, 216, cy, 180);
+            var btnCall = new FluentButton { Text = "📞", Location = new Point(404, cy), Width = 42, Height = 42, Font = new Font("Segoe UI", 12f) };
+            btnCall.Click += (s, e) =>
+            {
+                var number = txtEngineerContact.Text.Trim();
+                if (string.IsNullOrEmpty(number)) { MessageBox.Show("엔지니어 연락처를 입력해주세요.", "알림", MessageBoxButtons.OK, MessageBoxIcon.Information); return; }
+                try { System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("tel:" + number) { UseShellExecute = true }); }
+                catch { MessageBox.Show("휴대폰과 연결 앱을 확인해주세요.", "전화 연결 실패", MessageBoxButtons.OK, MessageBoxIcon.Warning); }
+            };
+            card.Controls.Add(btnCall);
+            cy += 50;
 
             AddDivider(card, cy); cy += 20;
 
