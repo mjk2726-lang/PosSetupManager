@@ -303,26 +303,23 @@ namespace PosSetupManager.Services
                 ", name);
                 await _page.EvaluateAsync(searchJs);
 
-                // 검색 결과가 실제로 나타날 때까지 대기
-                await _page.WaitForSelectorAsync(
-                    "div.member",
-                    new PageWaitForSelectorOptions { Timeout = 8000 });
+                // 해당 이름이 포함된 결과가 실제로 나타날 때까지 대기
+                await _page.WaitForFunctionAsync(
+                    "name => Array.from(document.querySelectorAll('div.member')).some(el => el.innerText.includes(name))",
+                    name,
+                    new PageWaitForFunctionOptions { Timeout = 8000 });
 
-                try
+                var members = _page.Locator("div.member");
+                int count = await members.CountAsync();
+                for (int i = 0; i < count; i++)
                 {
-                    var members = _page.Locator("div.member");
-                    int count = await members.CountAsync();
-                    for (int i = 0; i < count; i++)
+                    var text = await members.Nth(i).InnerTextAsync();
+                    if (text.Contains(name))
                     {
-                        var text = await members.Nth(i).InnerTextAsync();
-                        if (text.Contains(name))
-                        {
-                            await members.Nth(i).ClickAsync(new LocatorClickOptions { Force = true, Timeout = 3000 });
-                            break;
-                        }
+                        await members.Nth(i).ClickAsync(new LocatorClickOptions { Force = true, Timeout = 3000 });
+                        break;
                     }
                 }
-                catch { }
                 await _page.WaitForTimeoutAsync(300);
                 await SafeClick("a.btn_layer_x");
                 await _page.WaitForTimeoutAsync(300);

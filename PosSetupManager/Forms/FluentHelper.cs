@@ -393,9 +393,16 @@ namespace PosSetupManager.Forms
             base.OnLayout(e);
             if (Inner == null) return;
             int padH = 8;
-            int padV = (Height - Inner.PreferredHeight) / 2;
-            if (padV < 2) padV = 2;
-            Inner.SetBounds(padH, padV, Width - padH * 2, Height - padV * 2);
+            if (Inner.Multiline)
+            {
+                Inner.SetBounds(padH, 4, Width - padH * 2, Height - 8);
+            }
+            else
+            {
+                int padV = (Height - Inner.PreferredHeight) / 2;
+                if (padV < 2) padV = 2;
+                Inner.SetBounds(padH, padV, Width - padH * 2, Height - padV * 2);
+            }
         }
 
         protected override void OnPaint(PaintEventArgs e)
