@@ -45,7 +45,8 @@ namespace PosSetupManager.Forms
 
         // 기본정보
         private RoundTextBox txtStoreName, txtRemoteManager, txtEngineerContact;
-        private RoundTextBox txtStartTime, txtEndTime, txtLinkEndTime, txtElapsedTime, txtInstallTime;
+        private RoundTextBox txtElapsedTime;
+        private RoundComboBox txtStartTime, txtEndTime, txtLinkEndTime, txtInstallTime;
         private RoundDateTimePicker dtpInstallDate;
         private FluentButton btnStart, btnFinish;
 
@@ -510,7 +511,7 @@ namespace PosSetupManager.Forms
             dtpInstallDate = new RoundDateTimePicker { Location = new Point(220, cy), Width = 210, Height = 42, Format = DateTimePickerFormat.Short };
             dtpInstallDate.Inner.Value = DateTime.Today;
             card.Controls.Add(dtpInstallDate);
-            txtInstallTime = AddRTB(card, 450, cy, 140); cy += 50;
+            txtInstallTime = AddTimeCombo(card, 450, cy, 140); cy += 50;
 
             // 행2: 원격담당자 / 엔지니어 연락처
             AddFL(card, "원격 담당자", 0, cy); AddFL(card, "엔지니어 연락처", 216, cy); cy += 22;
@@ -533,9 +534,9 @@ namespace PosSetupManager.Forms
             AddFL(card, "작업 시작 시간 *", 0, cy);
             AddFL(card, "작업 종료 시간 *", 220, cy);
             AddFL(card, "연동 종료 시간", 450, cy); cy += 22;
-            txtStartTime = AddRTB(card, 0, cy, 200);
-            txtEndTime = AddRTB(card, 220, cy, 200);
-            txtLinkEndTime = AddRTB(card, 450, cy, 160); cy += 50;
+            txtStartTime = AddTimeCombo(card, 0, cy, 200);
+            txtEndTime = AddTimeCombo(card, 220, cy, 200);
+            txtLinkEndTime = AddTimeCombo(card, 450, cy, 160); cy += 50;
 
             AddFL(card, "소요시간 (자동계산)", 0, cy); AddFL(card, "테이블 모드", 220, cy); cy += 22;
             txtElapsedTime = AddRTB(card, 0, cy, 160);
@@ -922,28 +923,29 @@ namespace PosSetupManager.Forms
             y += 28;
             var fileCard = MakeCard(inner, ref y); int fcy = 0;
             fileCard.Controls.Add(new Label { Text = "파일 선택", Location = new Point(0, fcy + 8), AutoSize = true, Font = FluentFonts.Body, ForeColor = TXT_S });
-            txtAttachmentPath = new System.Windows.Forms.TextBox { Location = new Point(80, fcy + 4), Width = 300, Height = 28, Font = FluentFonts.Body, BorderStyle = BorderStyle.FixedSingle, ReadOnly = true, BackColor = Color.FromArgb(245, 245, 245) };
-            btnSelectFile = new FluentButton { Text = "📁  파일 선택", Location = new Point(388, fcy), Width = 110, Height = 36 };
+            txtAttachmentPath = new System.Windows.Forms.TextBox { Location = new Point(80, fcy + 4), Width = 420, Height = 90, Font = FluentFonts.Body, BorderStyle = BorderStyle.FixedSingle, ReadOnly = true, BackColor = Color.FromArgb(245, 245, 245), Multiline = true, ScrollBars = ScrollBars.Vertical };
+            btnSelectFile = new FluentButton { Text = "📁  파일 선택", Location = new Point(508, fcy), Width = 110, Height = 36 };
             btnSelectFile.Click += (s, e) =>
             {
                 using (var dlg = new OpenFileDialog())
                 {
-                    dlg.Title = "네트워크 상태 이미지 선택";
+                    dlg.Title = "네트워크 상태 이미지 선택 (여러 장 선택 가능)";
                     dlg.Filter = "이미지 파일|*.jpg;*.jpeg;*.png;*.bmp;*.gif|모든 파일|*.*";
+                    dlg.Multiselect = true;
                     if (dlg.ShowDialog() == DialogResult.OK)
                     {
-                        txtAttachmentPath.Text = dlg.FileName;
+                        txtAttachmentPath.Text = string.Join(Environment.NewLine, dlg.FileNames);
                         AutoSave();
                     }
                 }
             };
-            var btnClear = new FluentButton { Text = "✕", Location = new Point(506, fcy), Width = 36, Height = 36 };
+            var btnClear = new FluentButton { Text = "✕", Location = new Point(626, fcy), Width = 36, Height = 36 };
             btnClear.Click += (s, e) => { txtAttachmentPath.Text = ""; AutoSave(); };
             fileCard.Controls.AddRange(new Control[] { txtAttachmentPath, btnSelectFile, btnClear });
-            fileCard.Height = fcy + 56;
+            fileCard.Height = fcy + 114;
             y += fileCard.Height + 16;
 
-            btnRegister = new FluentButton { Text = "🌐  다우오피스 자동 등록", IsPrimary = true, Location = new Point(0, y), Width = 210, Height = 46 };
+            btnRegister = new FluentButton { Text = "🌐  다우오피스 자동 등록", IsPrimary = true, Location = new Point(0, y), Width = 340, Height = 50 };
             btnRegister.Font = new Font("Segoe UI", 10f, FontStyle.Bold);
             btnRegister.Click += BtnRegister_Click;
             inner.Controls.Add(btnRegister);
@@ -1191,7 +1193,13 @@ namespace PosSetupManager.Forms
                 dtpInstallDate.Inner.Value = DateTime.Today;
             txtInstallTime.Text = d.Basic.InstallTime; txtRemoteManager.Text = d.Basic.RemoteManager;
             if (txtEngineerContact != null) txtEngineerContact.Text = d.Basic.EngineerContact;
-            if (txtAttachmentPath != null) txtAttachmentPath.Text = d.Basic.AttachmentPath ?? "";
+            if (txtAttachmentPath != null)
+            {
+                if (d.Basic.AttachmentPaths != null && d.Basic.AttachmentPaths.Count > 0)
+                    txtAttachmentPath.Text = string.Join(Environment.NewLine, d.Basic.AttachmentPaths);
+                else
+                    txtAttachmentPath.Text = d.Basic.AttachmentPath ?? "";
+            }
             txtStartTime.Text = d.Basic.StartTime; txtEndTime.Text = d.Basic.EndTime;
             txtLinkEndTime.Text = d.Basic.LinkEndTime; txtElapsedTime.Text = d.Basic.ElapsedTime;
 
@@ -1240,7 +1248,12 @@ namespace PosSetupManager.Forms
             d.Basic.StoreName = txtStoreName.Text; if (dtpInstallDate != null) d.Basic.InstallDate = dtpInstallDate.Inner.Value;
             d.Basic.InstallTime = txtInstallTime.Text; d.Basic.RemoteManager = txtRemoteManager.Text;
             if (txtEngineerContact != null) d.Basic.EngineerContact = txtEngineerContact.Text;
-            if (txtAttachmentPath != null) d.Basic.AttachmentPath = txtAttachmentPath.Text;
+            if (txtAttachmentPath != null)
+            {
+                var paths = txtAttachmentPath.Text.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries);
+                d.Basic.AttachmentPaths = new System.Collections.Generic.List<string>(paths);
+                d.Basic.AttachmentPath = d.Basic.AttachmentPaths.Count > 0 ? d.Basic.AttachmentPaths[0] : "";
+            }
             d.Basic.StartTime = txtStartTime.Text; d.Basic.EndTime = txtEndTime.Text;
             d.Basic.LinkEndTime = txtLinkEndTime.Text; d.Basic.ElapsedTime = txtElapsedTime.Text;
             d.Pos.RemoteAccount = rbLMM.Checked ? "LMM" : rbChrome.Checked ? "크롬" : rbSitrom.Checked ? "씨트롬" : rbRemoteEtc.Checked ? "기타" : "";
@@ -1374,6 +1387,20 @@ namespace PosSetupManager.Forms
         {
             var tb = new RoundTextBox { Location = new Point(x, y), Width = w, Height = 42 };
             p.Controls.Add(tb); return tb;
+        }
+
+        private RoundComboBox AddTimeCombo(Control p, int x, int y, int w)
+        {
+            var cb = new RoundComboBox { Location = new Point(x, y), Width = w, Height = 42 };
+            cb.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDown;
+            cb.Inner.ItemHeight = 26;
+            for (int h = 8; h <= 20; h++)
+            {
+                cb.Items.Add(string.Format("{0:D2}:00", h));
+                if (h < 20) cb.Items.Add(string.Format("{0:D2}:30", h));
+            }
+            p.Controls.Add(cb);
+            return cb;
         }
 
         private RoundTextBox AddRLR(Control p, string label, ref int y, int w = 220)

@@ -448,6 +448,24 @@ namespace PosSetupManager.Forms
 
         public System.Windows.Forms.ComboBox.ObjectCollection Items { get { return Inner.Items; } }
 
+        public new string Text
+        {
+            get { return Inner.Text; }
+            set { Inner.Text = value; }
+        }
+
+        public new event EventHandler TextChanged
+        {
+            add { Inner.TextChanged += value; }
+            remove { Inner.TextChanged -= value; }
+        }
+
+        public new event EventHandler Leave
+        {
+            add { Inner.Leave += value; }
+            remove { Inner.Leave -= value; }
+        }
+
         public RoundComboBox()
         {
             Height = 42;

@@ -92,47 +92,15 @@ namespace PosSetupManager.Services
                 await input.FillText("_1zbjr7ank", d.Finish.RemoteEduContact);
                 await input.FillTextArea("_l3ylkbwy6", d.Finish.InstallIssue);
 
+                if (d.Basic.AttachmentPaths != null && d.Basic.AttachmentPaths.Count > 0)
+                {
+                    progress?.Report("파일 첨부 중...");
+                    await input.AttachFile(d.Basic.AttachmentPaths.ToArray());
+                }
+
                 progress?.Report("등록 버튼 클릭 중...");
                 var submit = new SubmitService(page);
                 var result = await submit.SubmitAsync();
-
-                // ── 파일 첨부 (등록 완료 후 에디터 클릭 → Ctrl+V → 재등록) ──
-                if (result.Item1 && !string.IsNullOrEmpty(d.Basic.AttachmentPath))
-                {
-                    progress?.Report("파일 첨부 중...");
-                    // 등록 후 페이지 전환 + 에디터 로드 대기
-                    await page.WaitForTimeoutAsync(2000);
-                    try
-                    {
-                        // id=dext_frame_editor 또는 등록 버튼이 다시 나타날 때까지 대기
-                        await page.WaitForSelectorAsync(
-                            "iframe[id='dext_frame_editor'], a.btn_major",
-                            new PageWaitForSelectorOptions { Timeout = 10000 });
-                    }
-                    catch { await page.WaitForTimeoutAsync(3000); }
-                    await page.WaitForTimeoutAsync(1500);
-
-                    // 현재 모든 frame URL 로그
-                    foreach (var f in page.Frames.ToList())
-                        System.Diagnostics.Debug.WriteLine("FRAME: " + f.Name + " | " + f.Url);
-
-                    await input.AttachFile(d.Basic.AttachmentPath);
-                    await page.WaitForTimeoutAsync(1000);
-
-                    progress?.Report("최종 등록 중...");
-                    try
-                    {
-                        var btn2 = page.Locator("a.btn_major");
-                        if (await btn2.CountAsync() > 0)
-                        {
-                            await btn2.First.ClickAsync(new LocatorClickOptions { Force = true, Timeout = 5000 });
-                            await page.WaitForTimeoutAsync(2000);
-                        }
-                    }
-                    catch { }
-                    // 2차 등록은 항상 성공으로 처리
-                    result = Tuple.Create(true, (string)null);
-                }
 
                 if (result.Item1)
                     progress?.Report("등록 완료! 브라우저에서 검수해주세요.");

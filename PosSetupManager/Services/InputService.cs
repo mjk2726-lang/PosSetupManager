@@ -217,61 +217,14 @@ namespace PosSetupManager.Services
         }
 
         // ── 파일 첨부 (네트워크 상태 이미지) ──
-        public async Task AttachFile(string filePath)
+        public async Task AttachFile(string[] filePaths)
         {
-            if (string.IsNullOrEmpty(filePath) || !File.Exists(filePath)) return;
+            var valid = System.Array.FindAll(filePaths, p => !string.IsNullOrEmpty(p) && File.Exists(p));
+            if (valid.Length == 0) return;
             try
             {
-                // 1. 이미지를 클립보드에 복사 (STA 스레드)
-                var thread = new System.Threading.Thread(() =>
-                {
-                    try
-                    {
-                        using (var img = System.Drawing.Image.FromFile(filePath))
-                        using (var bmp = new System.Drawing.Bitmap(img))
-                            System.Windows.Forms.Clipboard.SetImage(bmp);
-                    }
-                    catch { }
-                });
-                thread.SetApartmentState(System.Threading.ApartmentState.STA);
-                thread.Start();
-                thread.Join();
-                await _page.WaitForTimeoutAsync(300);
-
-                // 2. iframe id로 찾기 (dext_frame_editor)
-                Microsoft.Playwright.IFrame frame = null;
-                foreach (var f in _page.Frames)
-                {
-                    // name이 비어있고 id=dext_frame_editor
-                    if (f.Url.Contains("editor_release")) { frame = f; break; }
-                }
-
-                // Playwright frame으로 직접 접근 (name=dext_frame_editor)
-                var editorFrame = _page.Frame("dext_frame_editor");
-                if (editorFrame != null)
-                {
-                    // frame 안 body 클릭
-                    await editorFrame.ClickAsync("body", new FrameClickOptions { Timeout = 5000 });
-                    await _page.WaitForTimeoutAsync(500);
-
-                    // Playwright keyboard Ctrl+V (frame 포커스 후)
-                    await editorFrame.Locator("body").PressAsync("Control+v");
-                    await _page.WaitForTimeoutAsync(2000);
-
-                    // 이미지 보정 팝업 - dext_dialog_editor frame 안에 있음
-                    try
-                    {
-                        await _page.WaitForTimeoutAsync(2000);
-                        var dialogFrame = _page.Frame("dext_dialog_editor");
-                        if (dialogFrame != null)
-                        {
-                            await dialogFrame.ClickAsync("#image_btn",
-                                new FrameClickOptions { Force = true, Timeout = 5000 });
-                        }
-                        await _page.WaitForTimeoutAsync(1000);
-                    }
-                    catch { }
-                }
+                await _page.SetInputFilesAsync("#dropZone input[type='file']", valid,
+                    new PageSetInputFilesOptions { Timeout = 10000 });
                 await _page.WaitForTimeoutAsync(1000);
             }
             catch (Exception ex)

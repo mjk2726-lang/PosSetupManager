@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 
 namespace PosSetupManager.Models
 {
@@ -13,8 +14,9 @@ namespace PosSetupManager.Models
         public string EndTime { get; set; } = "";
         public string LinkEndTime { get; set; } = "";
         public string ElapsedTime { get; set; } = "";
-        public string EngineerContact { get; set; } = ""; // 현장 엔지니어 연락처 (프로그램 내부용)
-        public string TableMode { get; set; } = ""; // 기본정보에서 선택
-        public string AttachmentPath { get; set; } = ""; // 네트워크 상태 첨부 파일
+        public string EngineerContact { get; set; } = "";
+        public string TableMode { get; set; } = "";
+        public string AttachmentPath { get; set; } = ""; // 하위호환용
+        public List<string> AttachmentPaths { get; set; } = new List<string>();
     }
 }
