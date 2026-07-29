@@ -237,47 +237,52 @@ namespace PosSetupManager.Services
         public async Task FillRemoteManager(string name)
         {
             if (string.IsNullOrEmpty(name)) return;
-            try
+
+            for (int attempt = 0; attempt < 2; attempt++)
             {
-                await _page.ClickAsync("[data-cid='_98c44zcu9'] .add-btn", new PageClickOptions { Timeout = 3000 });
-
-                // 팝업의 검색 input이 실제로 나타날 때까지 대기
-                await _page.WaitForSelectorAsync(
-                    "input.input_txt[type='search']",
-                    new PageWaitForSelectorOptions { Timeout = 8000 });
-
-                var searchJs = string.Format(@"
-                    var input = document.querySelector('input.input_txt[type=""search""]');
-                    if(input) {{
-                        var setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
-                        setter.call(input, '{0}');
-                        input.dispatchEvent(new Event('input', {{ bubbles: true }}));
-                    }}
-                ", name);
-                await _page.EvaluateAsync(searchJs);
-
-                // 해당 이름이 포함된 결과가 실제로 나타날 때까지 대기
-                await _page.WaitForFunctionAsync(
-                    "name => Array.from(document.querySelectorAll('div.member')).some(el => el.innerText.includes(name))",
-                    name,
-                    new PageWaitForFunctionOptions { Timeout = 8000 });
-
-                var members = _page.Locator("div.member");
-                int count = await members.CountAsync();
-                for (int i = 0; i < count; i++)
+                try
                 {
-                    var text = await members.Nth(i).InnerTextAsync();
-                    if (text.Contains(name))
-                    {
-                        await members.Nth(i).ClickAsync(new LocatorClickOptions { Force = true, Timeout = 3000 });
-                        break;
-                    }
+                    await SafeClick("a.btn_layer_x"); // 이전 시도에서 팝업이 열려있을 경우 닫기
+                    await _page.WaitForTimeoutAsync(300);
+
+                    await _page.ClickAsync("[data-cid='_98c44zcu9'] .add-btn", new PageClickOptions { Timeout = 3000 });
+
+                    await _page.WaitForSelectorAsync(
+                        "input.input_txt[type='search']",
+                        new PageWaitForSelectorOptions { Timeout = 8000 });
+
+                    // 실제 키입력으로 검색 트리거 (JS 이벤트 누락 방지)
+                    var searchInput = _page.Locator("input.input_txt[type='search']");
+                    await searchInput.ClearAsync();
+                    await searchInput.TypeAsync(name, new LocatorTypeOptions { Delay = 50 });
+
+                    await _page.WaitForFunctionAsync(
+                        "name => Array.from(document.querySelectorAll('div.member')).some(el => el.innerText.includes(name))",
+                        name,
+                        new PageWaitForFunctionOptions { Timeout = 8000 });
+
+                    // Filter 로케이터로 직접 클릭 (stale reference 방지)
+                    var member = _page.Locator("div.member").Filter(new LocatorFilterOptions { HasText = name });
+                    await member.First.ClickAsync(new LocatorClickOptions { Force = true, Timeout = 3000 });
+                    await _page.WaitForTimeoutAsync(600);
+
+                    await SafeClick("a.btn_layer_x");
+                    await _page.WaitForTimeoutAsync(500);
+
+                    // 필드에 실제로 이름이 들어갔는지 검증
+                    bool selected = await _page.EvaluateAsync<bool>(
+                        "n => (document.querySelector('[data-cid=\"_98c44zcu9\"]')?.innerText ?? '').includes(n)",
+                        name);
+
+                    if (selected) return;
+                    System.Diagnostics.Debug.WriteLine("원격담당자 선택 재시도: " + (attempt + 1));
                 }
-                await _page.WaitForTimeoutAsync(300);
-                await SafeClick("a.btn_layer_x");
-                await _page.WaitForTimeoutAsync(300);
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine("원격담당자 오류 (attempt " + attempt + "): " + ex.Message);
+                    await _page.WaitForTimeoutAsync(500);
+                }
             }
-            catch { }
         }
 
         private async Task SafeClick(string selector)
