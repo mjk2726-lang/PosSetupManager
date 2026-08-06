@@ -42,13 +42,18 @@ namespace PosSetupManager.Services
                 await _page.ClickAsync("#searchBtn", new PageClickOptions { Timeout = 5000 });
                 await _page.WaitForTimeoutAsync(1000);
 
-                // 결과에서 매장명 클릭
+                // 검색 결과 확인
                 var result = _page.Locator("td").Filter(new LocatorFilterOptions { HasText = storeName });
+                int count = await result.CountAsync();
+                if (count == 0)
+                    return Tuple.Create(false, "검색결과가 없습니다. 직접등록해주세요.");
+
+                // 결과 첫 번째 클릭
                 await result.First.ClickAsync(new LocatorClickOptions { Force = true, Timeout = 8000 });
                 await _page.WaitForTimeoutAsync(500);
 
                 // 팝업 닫기
-                await _page.ClickAsync("a[title='닫기']", new PageClickOptions { Timeout = 5000 });
+                await _page.ClickAsync("a.btn_minor_s[title='닫기']", new PageClickOptions { Timeout = 5000 });
                 await _page.WaitForTimeoutAsync(800);
 
                 // 확인 버튼
@@ -60,6 +65,10 @@ namespace PosSetupManager.Services
             catch (Exception ex)
             {
                 return Tuple.Create(false, "교육지원 등록 실패: " + ex.Message);
+            }
+            finally
+            {
+                try { await _page.CloseAsync(); } catch { }
             }
         }
     }
