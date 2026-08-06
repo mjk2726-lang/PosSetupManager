@@ -196,7 +196,8 @@ namespace PosSetupManager.Services
                 {"우리밴",             "_usvoeowq9_8"},
             };
 
-            foreach (var posType in posTypes)
+            var snapshot = new System.Collections.Generic.List<string>(posTypes);
+            foreach (var posType in snapshot)
             {
                 if (posIdMap.ContainsKey(posType))
                 {
@@ -238,49 +239,60 @@ namespace PosSetupManager.Services
         {
             if (string.IsNullOrEmpty(name)) return;
 
-            for (int attempt = 0; attempt < 2; attempt++)
+            for (int attempt = 0; attempt < 3; attempt++)
             {
                 try
                 {
-                    await SafeClick("a.btn_layer_x"); // 이전 시도에서 팝업이 열려있을 경우 닫기
-                    await _page.WaitForTimeoutAsync(300);
+                    if (attempt > 0)
+                    {
+                        // 팝업이 열려있으면 닫기
+                        await SafeClick("a.btn_layer_x");
+                        await _page.WaitForTimeoutAsync(400);
+                    }
 
-                    await _page.ClickAsync("[data-cid='_98c44zcu9'] .add-btn", new PageClickOptions { Timeout = 3000 });
+                    // 재시도 시: 이미 이름이 들어가 있으면 종료
+                    if (attempt > 0)
+                    {
+                        bool alreadySet = await _page.EvaluateAsync<bool>(
+                            "n => (document.querySelector('[data-cid=\"_98c44zcu9\"]')?.innerText ?? '').includes(n)", name);
+                        if (alreadySet) return;
+                    }
 
-                    await _page.WaitForSelectorAsync(
-                        "input.input_txt[type='search']",
-                        new PageWaitForSelectorOptions { Timeout = 8000 });
+                    await _page.ClickAsync("[data-cid='_98c44zcu9'] .add-btn", new PageClickOptions { Timeout = 4000 });
+                    await _page.WaitForSelectorAsync("input.input_txt[type='search']", new PageWaitForSelectorOptions { Timeout = 8000 });
+                    await _page.WaitForTimeoutAsync(300); // 팝업 UI 안정화
 
-                    // 실제 키입력으로 검색 트리거 (JS 이벤트 누락 방지)
                     var searchInput = _page.Locator("input.input_txt[type='search']");
+                    await searchInput.ClickAsync(); // 포커스 명시적 확보
+                    await _page.WaitForTimeoutAsync(200);
                     await searchInput.ClearAsync();
-                    await searchInput.TypeAsync(name, new LocatorTypeOptions { Delay = 50 });
+                    await searchInput.TypeAsync(name, new LocatorTypeOptions { Delay = 80 }); // 느린 타이핑으로 이벤트 확실히 트리거
+                    await _page.WaitForTimeoutAsync(700); // 디바운스 + 검색 결과 로드 대기
 
                     await _page.WaitForFunctionAsync(
                         "name => Array.from(document.querySelectorAll('div.member')).some(el => el.innerText.includes(name))",
                         name,
-                        new PageWaitForFunctionOptions { Timeout = 8000 });
+                        new PageWaitForFunctionOptions { Timeout = 10000 });
 
-                    // Filter 로케이터로 직접 클릭 (stale reference 방지)
+                    await _page.WaitForTimeoutAsync(300); // 목록 렌더링 안정화
+
                     var member = _page.Locator("div.member").Filter(new LocatorFilterOptions { HasText = name });
-                    await member.First.ClickAsync(new LocatorClickOptions { Force = true, Timeout = 3000 });
-                    await _page.WaitForTimeoutAsync(600);
+                    await member.First.ClickAsync(new LocatorClickOptions { Force = true, Timeout = 5000 });
+                    await _page.WaitForTimeoutAsync(1500); // 선택 서버 반영 대기 (핵심)
 
                     await SafeClick("a.btn_layer_x");
-                    await _page.WaitForTimeoutAsync(500);
+                    await _page.WaitForTimeoutAsync(1000); // DOM 업데이트 대기
 
-                    // 필드에 실제로 이름이 들어갔는지 검증
                     bool selected = await _page.EvaluateAsync<bool>(
-                        "n => (document.querySelector('[data-cid=\"_98c44zcu9\"]')?.innerText ?? '').includes(n)",
-                        name);
+                        "n => (document.querySelector('[data-cid=\"_98c44zcu9\"]')?.innerText ?? '').includes(n)", name);
 
                     if (selected) return;
-                    System.Diagnostics.Debug.WriteLine("원격담당자 선택 재시도: " + (attempt + 1));
+                    System.Diagnostics.Debug.WriteLine("원격담당자 재시도 " + (attempt + 1));
                 }
                 catch (Exception ex)
                 {
                     System.Diagnostics.Debug.WriteLine("원격담당자 오류 (attempt " + attempt + "): " + ex.Message);
-                    await _page.WaitForTimeoutAsync(500);
+                    await _page.WaitForTimeoutAsync(1000);
                 }
             }
         }

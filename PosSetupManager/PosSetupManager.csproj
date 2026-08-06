@@ -42,6 +42,12 @@
     <Reference Include="Microsoft.Bcl.AsyncInterfaces, Version=6.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
       <HintPath>..\packages\Microsoft.Bcl.AsyncInterfaces.6.0.0\lib\net461\Microsoft.Bcl.AsyncInterfaces.dll</HintPath>
     </Reference>
+    <Reference Include="Microsoft.Web.WebView2.Core">
+      <HintPath>..\packages\Microsoft.Web.WebView2.1.0.2792.45\lib\net462\Microsoft.Web.WebView2.Core.dll</HintPath>
+    </Reference>
+    <Reference Include="Microsoft.Web.WebView2.WinForms">
+      <HintPath>..\packages\Microsoft.Web.WebView2.1.0.2792.45\lib\net462\Microsoft.Web.WebView2.WinForms.dll</HintPath>
+    </Reference>
     <Reference Include="Microsoft.Playwright, Version=1.61.0.0, Culture=neutral, PublicKeyToken=db12f80f85d8ba23, processorArchitecture=MSIL">
       <HintPath>..\packages\Microsoft.Playwright.1.61.0\lib\netstandard2.0\Microsoft.Playwright.dll</HintPath>
     </Reference>
@@ -91,6 +97,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Forms\CalendarForm.cs" />
     <Compile Include="Forms\FluentHelper.cs" />
     <Compile Include="Forms\LoginDialog.cs" />
     <Compile Include="Forms\MainForm.cs">
@@ -100,6 +107,7 @@
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="Models\BasicInfo.cs" />
+    <Compile Include="Models\ScheduleItem.cs" />
     <Compile Include="Models\ChecklistData.cs" />
     <Compile Include="Models\ChecklistInfo.cs" />
     <Compile Include="Models\FinishInfo.cs" />
@@ -109,7 +117,9 @@
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Services\BrowserService.cs" />
+    <Compile Include="Services\CalendarReader.cs" />
     <Compile Include="Services\InputService.cs" />
+    <Compile Include="Services\EduSupportService.cs" />
     <Compile Include="Services\LoginService.cs" />
     <Compile Include="Services\PlaywrightService.cs" />
     <Compile Include="Services\ReportService.cs" />

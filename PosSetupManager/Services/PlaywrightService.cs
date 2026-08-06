@@ -103,7 +103,23 @@ namespace PosSetupManager.Services
                 var result = await submit.SubmitAsync();
 
                 if (result.Item1)
-                    progress?.Report("등록 완료! 브라우저에서 검수해주세요.");
+                {
+                    if (!string.IsNullOrEmpty(d.Finish.RemoteEduContact))
+                    {
+                        progress?.Report("교육지원 등록 중...");
+                        var eduPage = await BrowserService.NewPageAsync();
+                        var edu = new EduSupportService(eduPage);
+                        var eduResult = await edu.RegisterAsync(d.Basic.StoreName);
+                        if (eduResult.Item1)
+                            progress?.Report("등록 완료! (다우오피스 + 교육지원)");
+                        else
+                            progress?.Report("다우오피스 등록 완료. 교육지원 등록 실패: " + eduResult.Item2);
+                    }
+                    else
+                    {
+                        progress?.Report("등록 완료! 브라우저에서 검수해주세요.");
+                    }
+                }
 
                 return result;
             }

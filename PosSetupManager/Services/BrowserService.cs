@@ -55,7 +55,7 @@ namespace PosSetupManager.Services
                 Channel = "chrome",
                 Locale = "ko-KR",
                 ViewportSize = null,
-                Args = new[] { "--start-maximized" }
+                Args = new[] { "--start-maximized", "--no-restore-session-state" }
             };
 
             _context = await _playwright.Chromium.LaunchPersistentContextAsync(UserDataDir, options);

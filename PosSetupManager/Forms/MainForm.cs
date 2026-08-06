@@ -15,7 +15,7 @@ namespace PosSetupManager.Forms
 
         // 좌측
         private Panel pnlStoreList;
-        private FluentButton btnNewStore;
+        private FluentButton btnNewStore, btnCalendar;
         private DateTimePicker dtpFilterFrom, dtpFilterTo;
         private bool _filterAll = false;
         // 드래그 순번 변경
@@ -48,7 +48,8 @@ namespace PosSetupManager.Forms
         private RoundTextBox txtElapsedTime;
         private RoundComboBox txtStartTime, txtEndTime, txtLinkEndTime, txtInstallTime;
         private RoundDateTimePicker dtpInstallDate;
-        private FluentButton btnStart, btnFinish;
+        private FluentButton btnStart, btnFinish, btnSendSms;
+        private System.Windows.Forms.TextBox txtSmsMessage;
 
         // POS
         private RadioButton rbLMM, rbChrome, rbSitrom, rbRemoteEtc;
@@ -155,12 +156,15 @@ namespace PosSetupManager.Forms
         private void BuildLeft(Panel c)
         {
             // Bottom → Fill → Top 순
-            var bot = new Panel { Dock = DockStyle.Bottom, Height = 108, BackColor = SURFACE, Padding = new Padding(16, 8, 16, 16) };
+            var bot = new Panel { Dock = DockStyle.Bottom, Height = 152, BackColor = SURFACE, Padding = new Padding(16, 8, 16, 16) };
             btnNewStore = new FluentButton { Text = "＋  새 매장", IsPrimary = true, Dock = DockStyle.Top, Height = 44 };
             btnNewStore.Click += (s, e) => { var ss = _workspace.AddSession(); RefreshStoreList(); SelectSession(ss); };
+            btnCalendar = new FluentButton { Text = "📅  캘린더에서 가져오기", Dock = DockStyle.Top, Height = 38 };
+            btnCalendar.Click += BtnCalendar_Click;
             var btnSet = new FluentButton { Text = "⚙  설정", Dock = DockStyle.Bottom, Height = 36 };
             btnSet.Click += (s, e) => { new SettingsDialog().ShowDialog(this); };
             bot.Controls.Add(btnSet);
+            bot.Controls.Add(btnCalendar);
             bot.Controls.Add(btnNewStore);
             c.Controls.Add(bot);
 
@@ -295,14 +299,31 @@ namespace PosSetupManager.Forms
                 TextAlign = ContentAlignment.MiddleCenter,
                 Font = new Font("Segoe UI", 9f),
                 ForeColor = TXT_S,
-                BackColor = SURFACE,
+                BackColor = Color.Transparent,
                 Text = title + "\r\n-"
             };
             lbl.Paint += (s, e) =>
             {
                 e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
-                using (var path = RR(new Rectangle(0, 0, lbl.Width - 1, lbl.Height - 1), 8))
+                var r = new Rectangle(0, 0, lbl.Width - 1, lbl.Height - 1);
+                using (var path = RR(r, 8))
+                {
+                    e.Graphics.FillPath(new SolidBrush(SURFACE), path);
+                    // 상단 악센트 (둥근 모서리 클립)
+                    var savedClip = e.Graphics.Clip;
+                    e.Graphics.SetClip(path);
+                    e.Graphics.FillRectangle(new SolidBrush(ACCENT), new Rectangle(0, 0, lbl.Width, 3));
+                    e.Graphics.Clip = savedClip;
                     e.Graphics.DrawPath(new Pen(BORDER), path);
+                }
+                var parts = lbl.Text.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+                string chipTitle = parts.Length > 0 ? parts[0] : title;
+                string chipVal = parts.Length > 1 ? parts[1] : "-";
+                TextRenderer.DrawText(e.Graphics, chipTitle, new Font("Segoe UI", 7.5f),
+                    new Rectangle(4, 10, lbl.Width - 8, 15), TXT_M, TextFormatFlags.HorizontalCenter);
+                TextRenderer.DrawText(e.Graphics, chipVal, new Font("Segoe UI", 9.5f, FontStyle.Bold),
+                    new Rectangle(4, 28, lbl.Width - 8, 22), TXT,
+                    TextFormatFlags.HorizontalCenter | TextFormatFlags.EndEllipsis);
             };
             return lbl;
         }
@@ -433,6 +454,8 @@ namespace PosSetupManager.Forms
             foreach (var p in tabPages) if (p != null) p.Visible = false;
             if (tabPages[idx] != null) tabPages[idx].Visible = true;
             RefreshSidebar();
+            AutoSave();
+            RefreshStoreList();
         }
 
         private Panel MakePage(Panel c, int idx)
@@ -497,24 +520,24 @@ namespace PosSetupManager.Forms
             int y = 0;
 
             var card = MakeCard(inner, ref y);
-            int cy = 0;
+            int cy = 12; // 카드 상단 패딩
 
-            card.Controls.Add(new Label { Text = "기본정보", Font = new Font("Segoe UI", 11f, FontStyle.Bold), ForeColor = TXT, Location = new Point(0, cy), AutoSize = true }); cy += 36;
+            AddSectionHeader(card, "기본정보", 0, cy); cy += 42;
 
             // 행1: 매장명 / 설치예정일 / 설치예정시간
             AddFL(card, "매장명 *", 0, cy);
             AddFL(card, "설치 예정일 *", 220, cy);
-            AddFL(card, "설치 예정 시간", 450, cy); cy += 22;
+            AddFL(card, "설치 예정 시간", 450, cy); cy += 26;
 
             txtStoreName = AddRTB(card, 0, cy, 204);
             txtStoreName.TextChanged += (s, e) => { AutoSave(); RefreshStoreList(); };
-            dtpInstallDate = new RoundDateTimePicker { Location = new Point(220, cy), Width = 210, Height = 42, Format = DateTimePickerFormat.Short };
+            dtpInstallDate = new RoundDateTimePicker { Location = new Point(220, cy), Width = 220, Height = 42, Format = DateTimePickerFormat.Short };
             dtpInstallDate.Inner.Value = DateTime.Today;
             card.Controls.Add(dtpInstallDate);
-            txtInstallTime = AddTimeCombo(card, 450, cy, 140); cy += 50;
+            txtInstallTime = AddTimeCombo(card, 450, cy, 150); cy += 60;
 
             // 행2: 원격담당자 / 엔지니어 연락처
-            AddFL(card, "원격 담당자", 0, cy); AddFL(card, "엔지니어 연락처", 216, cy); cy += 22;
+            AddFL(card, "원격 담당자", 0, cy); AddFL(card, "엔지니어 연락처", 216, cy); cy += 26;
             txtRemoteManager = AddRTB(card, 0, cy, 204);
             txtEngineerContact = AddRTB(card, 216, cy, 180);
             var btnCall = new FluentButton { Text = "📞", Location = new Point(404, cy), Width = 42, Height = 42, Font = new Font("Segoe UI", 12f) };
@@ -526,19 +549,19 @@ namespace PosSetupManager.Forms
                 catch { MessageBox.Show("휴대폰과 연결 앱을 확인해주세요.", "전화 연결 실패", MessageBoxButtons.OK, MessageBoxIcon.Warning); }
             };
             card.Controls.Add(btnCall);
-            cy += 50;
+            cy += 60;
 
-            AddDivider(card, cy); cy += 20;
+            AddDivider(card, cy); cy += 28;
 
             // 행3: 시간
             AddFL(card, "작업 시작 시간 *", 0, cy);
             AddFL(card, "작업 종료 시간 *", 220, cy);
-            AddFL(card, "연동 종료 시간", 450, cy); cy += 22;
+            AddFL(card, "연동 종료 시간", 450, cy); cy += 26;
             txtStartTime = AddTimeCombo(card, 0, cy, 200);
             txtEndTime = AddTimeCombo(card, 220, cy, 200);
-            txtLinkEndTime = AddTimeCombo(card, 450, cy, 160); cy += 50;
+            txtLinkEndTime = AddTimeCombo(card, 450, cy, 160); cy += 60;
 
-            AddFL(card, "소요시간 (자동계산)", 0, cy); AddFL(card, "테이블 모드", 220, cy); cy += 22;
+            AddFL(card, "소요시간 (자동계산)", 0, cy); AddFL(card, "테이블 모드", 220, cy); cy += 26;
             txtElapsedTime = AddRTB(card, 0, cy, 160);
             txtElapsedTime.ReadOnly = true;
             txtElapsedTime.BackColor = Color.FromArgb(245, 245, 245);
@@ -553,7 +576,7 @@ namespace PosSetupManager.Forms
             rbTablePre.CheckedChanged += (s2, e2) => { AutoSave(); RefreshStoreList(); };
             rbTableNone.CheckedChanged += (s2, e2) => { AutoSave(); RefreshStoreList(); };
             card.Controls.AddRange(new Control[] { rbTablePost, rbTablePre, rbTableNone });
-            cy += 50;
+            cy += 60;
 
             txtStartTime.Leave += (s, e) => { txtStartTime.Text = FmtT(txtStartTime.Text); UpdateElapsed(); UpdateStartBtn(); };
             txtEndTime.Leave += (s, e) => { txtEndTime.Text = FmtT(txtEndTime.Text); UpdateElapsed(); UpdateStartBtn(); };
@@ -567,13 +590,58 @@ namespace PosSetupManager.Forms
             // 작업 시간 기록 카드
             var card2 = MakeCard(inner, ref y);
             int cy2 = 0;
-            card2.Controls.Add(new Label { Text = "작업 시간 기록", Font = new Font("Segoe UI", 11f, FontStyle.Bold), ForeColor = TXT, Location = new Point(0, cy2), AutoSize = true }); cy2 += 36;
+            AddSectionHeader(card2, "작업 시간 기록", 0, cy2); cy2 += 36;
             btnStart = new FluentButton { Text = "▶  작업 시작", Location = new Point(0, cy2), Width = 140, Height = 40 };
             btnFinish = new FluentButton { Text = "✔  작업 완료", Location = new Point(152, cy2), Width = 140, Height = 40, Enabled = false };
             btnStart.Click += BtnStart_Click;
             btnFinish.Click += BtnFinish_Click;
             card2.Controls.AddRange(new Control[] { btnStart, btnFinish });
-            card2.Height = cy2 + 60; y += card2.Height + 16;
+            card2.Height = cy2 + 56; y += card2.Height + 16;
+
+            // 메모 / 문자 전송 카드
+            var card3 = MakeCard(inner, ref y);
+            AddSectionHeader(card3, "메모 / 문자 전송", 0, 0);
+
+            // 텍스트 영역 (섹션 헤더 아래)
+            var msgWrap = new Panel
+            {
+                BackColor = SURFACE,
+                Location = new Point(0, 36),
+                Size = new Size(card3.Width, 82),
+                Anchor = AnchorStyles.Top | AnchorStyles.Left | AnchorStyles.Right
+            };
+            msgWrap.Paint += (sw, ew) =>
+            {
+                using (var pen = new Pen(BORDER))
+                    ew.Graphics.DrawRectangle(pen, 0, 0, msgWrap.Width - 1, msgWrap.Height - 1);
+            };
+            txtSmsMessage = new System.Windows.Forms.TextBox
+            {
+                Multiline = true, ScrollBars = ScrollBars.Vertical,
+                Font = FluentFonts.Body, BorderStyle = BorderStyle.None,
+                BackColor = SURFACE, Dock = DockStyle.Fill
+            };
+            txtSmsMessage.KeyDown += (sw, ew) =>
+            {
+                if (ew.Control && ew.KeyCode == Keys.V)
+                    BeginInvoke(new Action(() => { txtSmsMessage.SelectionStart = 0; txtSmsMessage.ScrollToCaret(); }));
+            };
+            msgWrap.Controls.Add(txtSmsMessage);
+            card3.Controls.Add(msgWrap);
+
+            // 전송 버튼 — 텍스트 영역 바로 아래, 고정 좌표
+            btnSendSms = new FluentButton
+            {
+                Text = "📱 문자 전송",
+                IsPrimary = true,
+                Width = 120,
+                Height = 34,
+                Location = new Point(8, 124)
+            };
+            btnSendSms.Click += BtnSendSms_Click;
+            card3.Controls.Add(btnSendSms);
+
+            card3.Height = 36 + 82 + 8 + 34 + 16; y += card3.Height + 16;
 
             // 경고바
             var warn = new RoundPanel(8) { Location = new Point(0, y), Height = 48, BackColor = WARN_BG, Anchor = AnchorStyles.Left | AnchorStyles.Right | AnchorStyles.Top };
@@ -598,26 +666,26 @@ namespace PosSetupManager.Forms
             int y = 0;
 
             var c1 = MakeCard(inner, ref y); int cy = 0;
-            c1.Controls.Add(new Label { Text = "원격 계정", Font = new Font("Segoe UI", 11f, FontStyle.Bold), ForeColor = TXT, Location = new Point(0, cy), AutoSize = true }); cy += 36;
+            AddSectionHeader(c1, "원격 계정", 0, cy); cy += 36;
             rbLMM = AddRB(c1, "LMM", 0, cy); rbChrome = AddRB(c1, "크롬", 90, cy);
             rbSitrom = AddRB(c1, "씨트롬", 180, cy); rbRemoteEtc = AddRB(c1, "기타", 280, cy); cy += 34;
             GroupRBs(rbLMM, rbChrome, rbSitrom, rbRemoteEtc);
             c1.Height = cy + 20; y += c1.Height + 16;
 
             var c2 = MakeCard(inner, ref y); cy = 0;
-            c2.Controls.Add(new Label { Text = "원격명 어드민 매장명과 동일하게 셋팅", Font = new Font("Segoe UI", 11f, FontStyle.Bold), ForeColor = TXT, Location = new Point(0, cy), AutoSize = true }); cy += 36;
+            AddSectionHeader(c2, "원격명 어드민 매장명과 동일하게 셋팅", 0, cy); cy += 36;
             rbAdminSame = AddRB(c2, "동일", 0, cy); rbAdminDiff = AddRB(c2, "다름", 90, cy); cy += 34;
             GroupRBs(rbAdminSame, rbAdminDiff);
             c2.Height = cy + 20; y += c2.Height + 16;
 
             var c3 = MakeCard(inner, ref y); cy = 0;
-            c3.Controls.Add(new Label { Text = "LMM매장명(어드민계정ID)셋팅", Font = new Font("Segoe UI", 11f, FontStyle.Bold), ForeColor = TXT, Location = new Point(0, cy), AutoSize = true }); cy += 36;
+            AddSectionHeader(c3, "LMM매장명(어드민계정ID)셋팅", 0, cy); cy += 36;
             rbLmmOk = AddRB(c3, "O (완료)", 0, cy); rbLmmFail = AddRB(c3, "X (미완료)", 110, cy); cy += 34;
             GroupRBs(rbLmmOk, rbLmmFail);
             c3.Height = cy + 20; y += c3.Height + 16;
 
             var c4 = MakeCard(inner, ref y); cy = 0;
-            c4.Controls.Add(new Label { Text = "POS 종류", Font = new Font("Segoe UI", 11f, FontStyle.Bold), ForeColor = TXT, Location = new Point(0, cy), AutoSize = true }); cy += 36;
+            AddSectionHeader(c4, "POS 종류", 0, cy); cy += 36;
             string[] pns = { "이지포스", "엠포스", "스마일포스", "오케이포스", "메이트포스", "배달포스", "K포스", "하이픈포스(개통불가)", "유니온포스", "키움포스", "팝스(웨이브포스)", "링크포스", "포스마스터(티페이)", "퍼스트포스", "에어포스", "토스포스", "포스메이커스(개통불가)", "윙스포스", "안시포스", "기타", "연동안함", "타밴", "우리밴" };
             int col = 0, row2 = 0;
             foreach (var nm in pns)
@@ -644,7 +712,7 @@ namespace PosSetupManager.Forms
 
             // ── 이동된 체크 항목 (OX 행은 폼 기준 절대위치) ──
             var c0 = MakeCard(inner, ref y); int cy = 0;
-            c0.Controls.Add(new Label { Text = "네트워크 확인", Font = new Font("Segoe UI", 11f, FontStyle.Bold), ForeColor = TXT, Location = new Point(0, cy), AutoSize = true }); cy += 36;
+            AddSectionHeader(c0, "네트워크 확인", 0, cy); cy += 36;
 
             // OX 행 - 폼 너비 기준
             Action<string, System.Action<OxRadio>> addNetOX = (lbl, setter) =>
@@ -683,7 +751,7 @@ namespace PosSetupManager.Forms
 
             // ── 공유기 계정 ──
             var c1 = MakeCard(inner, ref y); cy = 0;
-            c1.Controls.Add(new Label { Text = "공유기 관리자 계정", Font = new Font("Segoe UI", 11f, FontStyle.Bold), ForeColor = TXT, Location = new Point(0, cy), AutoSize = true }); cy += 36;
+            AddSectionHeader(c1, "공유기 관리자 계정", 0, cy); cy += 36;
             txtRouterKT = AddRLR(c1, "KT", ref cy);
             txtRouterLG = AddRLR(c1, "LG", ref cy);
             txtRouterSK = AddRLR(c1, "SK", ref cy);
@@ -693,7 +761,7 @@ namespace PosSetupManager.Forms
 
             // ── 네트워크 ──
             var c2 = MakeCard(inner, ref y); cy = 0;
-            c2.Controls.Add(new Label { Text = "네트워크 정보", Font = new Font("Segoe UI", 11f, FontStyle.Bold), ForeColor = TXT, Location = new Point(0, cy), AutoSize = true }); cy += 36;
+            AddSectionHeader(c2, "네트워크 정보", 0, cy); cy += 36;
             txtWifiAccount = AddRLR(c2, "와이파이 계정/비밀번호", ref cy, 230);
             txtMainPosIP = AddRLR(c2, "메인포스 내부 IP", ref cy, 190);
             c2.Height = cy + 20;
@@ -765,7 +833,10 @@ namespace PosSetupManager.Forms
             Func<string, RadioButton, RadioButton> addRow = (lbText, dummy) => null;
 
             // 제목
-            cf.Controls.Add(new Label { Text = "설치 체크리스트", Font = new Font("Segoe UI", 11f, FontStyle.Bold), ForeColor = TXT, AutoSize = true, Margin = new Padding(0, 0, 0, 12) });
+            var chkSecHdr = new Panel { Size = new Size(800, 34), BackColor = Color.Transparent, Margin = new Padding(0, 0, 0, 8) };
+            chkSecHdr.Controls.Add(new Panel { Location = new Point(0, 8), Size = new Size(3, 18), BackColor = ACCENT });
+            chkSecHdr.Controls.Add(new Label { Text = "설치 체크리스트", Location = new Point(10, 3), AutoSize = true, Font = new Font("Segoe UI", 10.5f, FontStyle.Bold), ForeColor = TXT });
+            cf.Controls.Add(chkSecHdr);
 
             // OX 행 생성 함수 - 폼 리사이즈에 따라 O/X 위치 동적 조정
             Func<string, OxRadio> makeOX = (lbText) =>
@@ -901,7 +972,7 @@ namespace PosSetupManager.Forms
             int y = 0;
 
             var card = MakeCard(inner, ref y); int cy = 0;
-            card.Controls.Add(new Label { Text = "완료", Font = new Font("Segoe UI", 11f, FontStyle.Bold), ForeColor = TXT, Location = new Point(0, cy), AutoSize = true }); cy += 36;
+            AddSectionHeader(card, "완료", 0, cy); cy += 36;
 
             pnlCouponX = new Panel { Location = new Point(0, cy), Height = 0, Width = 0, Visible = false };
             //
@@ -1316,11 +1387,67 @@ namespace PosSetupManager.Forms
             btnStart.Enabled = false; btnFinish.Enabled = true; AutoSave();
         }
 
+        private void BtnSendSms_Click(object sender, EventArgs e)
+        {
+            var phone = txtEngineerContact?.Text?.Trim();
+            var message = txtSmsMessage?.Text?.Trim();
+            if (string.IsNullOrEmpty(phone))
+            {
+                MessageBox.Show("엔지니어 연락처를 먼저 입력해주세요.", "알림", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+            if (string.IsNullOrEmpty(message))
+            {
+                MessageBox.Show("전송할 내용을 입력해주세요.", "알림", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+            try
+            {
+                var uri = string.Format("sms:{0}?body={1}", phone, Uri.EscapeDataString(message));
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(uri) { UseShellExecute = true });
+            }
+            catch
+            {
+                Clipboard.SetText(message);
+                MessageBox.Show(string.Format("문자 앱을 열 수 없습니다.\n메시지를 클립보드에 복사했습니다.\n수신번호: {0}", phone), "알림", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+        }
+
         private void BtnFinish_Click(object sender, EventArgs e)
         {
             var end = DateTime.Now; txtEndTime.Text = end.ToString("HH:mm");
             if (workStartTime.HasValue) txtElapsedTime.Text = string.Format("{0}분", (int)(end - workStartTime.Value).TotalMinutes);
             btnFinish.Enabled = false; AutoSave();
+        }
+
+        private void BtnCalendar_Click(object sender, EventArgs e)
+        {
+            using (var dlg = new CalendarForm())
+            {
+                if (dlg.ShowDialog(this) != System.Windows.Forms.DialogResult.OK) return;
+                var items = dlg.ExtractedItems;
+                if (items == null || items.Count == 0) return;
+
+                int added = 0;
+                foreach (var item in items)
+                {
+                    var ss = _workspace.AddSession();
+                    ss.Data.Basic.StoreName = item.StoreName;
+                    if (item.InstallDate.HasValue) ss.Data.Basic.InstallDate = item.InstallDate.Value;
+                    ss.Data.Basic.InstallTime = item.InstallTime;
+                    ss.Data.Basic.RemoteManager = item.RemoteManager;
+                    ss.Data.Basic.EngineerContact = item.EngineerContact;
+                    added++;
+                }
+                _workspace.Save();
+                RefreshStoreList();
+
+                if (added > 0 && _workspace.ActiveSessions.Count > 0)
+                    SelectSession(_workspace.ActiveSessions[0]);
+
+                MessageBox.Show(string.Format("{0}개 세션이 추가되었습니다.", added),
+                    "캘린더 가져오기", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
         }
 
         private async void BtnRegister_Click(object sender, EventArgs e)
@@ -1330,17 +1457,26 @@ namespace PosSetupManager.Forms
             var errs = DoValidate(_currentSession.Data);
             if (errs.Count > 0) { MessageBox.Show("필수 항목을 입력해주세요:\n\n" + string.Join("\n", errs), "입력 오류", MessageBoxButtons.OK, MessageBoxIcon.Warning); return; }
             btnRegister.Enabled = false; btnRegister.Text = "등록 중...";
-            var svc = new PlaywrightService();
-            var prog = new Progress<string>(msg => { if (InvokeRequired) Invoke(new Action(() => btnRegister.Text = msg)); else btnRegister.Text = msg; });
-            var res = await svc.RegisterAsync(_currentSession.Data, prog);
-            btnRegister.Enabled = true; btnRegister.Text = "🌐  다우오피스 자동 등록";
-            if (res.Item1)
+            _isLoading = true; // 등록 중 AutoSave 차단 (컬렉션 동시 수정 방지)
+            try
             {
-                ReportService.SaveReport(_currentSession.Data);
-                if (MessageBox.Show("등록 완료!\n완료 처리하시겠습니까?", "완료", MessageBoxButtons.YesNo, MessageBoxIcon.Information) == DialogResult.Yes)
-                { _workspace.CompleteSession(_currentSession.Id); ClearSession(); RefreshStoreList(); }
+                var svc = new PlaywrightService();
+                var prog = new Progress<string>(msg => { if (InvokeRequired) Invoke(new Action(() => btnRegister.Text = msg)); else btnRegister.Text = msg; });
+                var res = await svc.RegisterAsync(_currentSession.Data, prog);
+                if (res.Item1)
+                {
+                    ReportService.SaveReport(_currentSession.Data);
+                    if (MessageBox.Show("등록 완료!\n완료 처리하시겠습니까?", "완료", MessageBoxButtons.YesNo, MessageBoxIcon.Information) == DialogResult.Yes)
+                    { _workspace.CompleteSession(_currentSession.Id); ClearSession(); RefreshStoreList(); }
+                }
+                else MessageBox.Show("등록 실패:\n" + res.Item2, "오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
-            else MessageBox.Show("등록 실패:\n" + res.Item2, "오류", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            finally
+            {
+                _isLoading = false;
+                btnRegister.Enabled = true;
+                btnRegister.Text = "🌐  다우오피스 자동 등록";
+            }
         }
 
         private List<string> DoValidate(ChecklistData d)
@@ -1374,8 +1510,24 @@ namespace PosSetupManager.Forms
         // ═══════════════════════════════
         // UI 헬퍼
         // ═══════════════════════════════
+        private void AddSectionHeader(Control p, string text, int x, int y)
+        {
+            p.Controls.Add(new Panel { Location = new Point(x, y + 8), Size = new Size(3, 18), BackColor = ACCENT });
+            p.Controls.Add(new Label { Text = text, Location = new Point(x + 10, y + 3), AutoSize = true, Font = new Font("Segoe UI", 10.5f, FontStyle.Bold), ForeColor = TXT });
+        }
+
         private void AddFL(Control p, string text, int x, int y)
-            => p.Controls.Add(new Label { Text = text, Location = new Point(x, y), AutoSize = true, Font = new Font("Segoe UI", 8.5f), ForeColor = TXT_S });
+        {
+            bool hasStar = text.Contains("*");
+            string mainText = hasStar ? text.Replace(" *", "").Replace("*", "") : text;
+            var font = new Font("Segoe UI", 8.5f);
+            p.Controls.Add(new Label { Text = mainText, Location = new Point(x, y), AutoSize = true, Font = font, ForeColor = TXT_S });
+            if (hasStar)
+            {
+                int w = TextRenderer.MeasureText(mainText, font).Width - 4;
+                p.Controls.Add(new Label { Text = "*", Location = new Point(x + w, y - 1), AutoSize = true, Font = new Font("Segoe UI", 9f, FontStyle.Bold), ForeColor = Color.FromArgb(196, 0, 0) });
+            }
+        }
 
         private System.Windows.Forms.TextBox AddTB(Control p, int x, int y, int w)
         {
@@ -1558,17 +1710,15 @@ namespace PosSetupManager.Forms
 
             if (session.Status != "완료")
             {
-                var done = new Label { Text = "완료처리", Font = new Font("Segoe UI", 7.5f), ForeColor = ACC, AutoSize = true, TextAlign = ContentAlignment.MiddleCenter, Cursor = Cursors.Hand, BorderStyle = BorderStyle.FixedSingle };
-                done.Location = new Point(Width - 68, 70); done.Anchor = AnchorStyles.Right | AnchorStyles.Top;
+                var done = new Label { Text = "완료처리", Font = new Font("Segoe UI", 7.5f, FontStyle.Bold), ForeColor = ACC, BackColor = Color.FromArgb(235, 246, 255), Size = new Size(58, 20), TextAlign = ContentAlignment.MiddleCenter, Cursor = Cursors.Hand };
+                done.Location = new Point(Width - 70, 68); done.Anchor = AnchorStyles.Right | AnchorStyles.Top;
                 done.Click += (s, e) => OnComplete?.Invoke(_s.Id);
                 Controls.Add(done);
-
-
             }
             else
             {
-                var rest = new Label { Text = "복구", Font = new Font("Segoe UI", 7.5f), ForeColor = TS, AutoSize = true, TextAlign = ContentAlignment.MiddleCenter, Cursor = Cursors.Hand, BorderStyle = BorderStyle.FixedSingle };
-                rest.Location = new Point(Width - 52, 70); rest.Anchor = AnchorStyles.Right | AnchorStyles.Top;
+                var rest = new Label { Text = "복구", Font = new Font("Segoe UI", 7.5f, FontStyle.Bold), ForeColor = TS, BackColor = Color.FromArgb(240, 240, 240), Size = new Size(40, 20), TextAlign = ContentAlignment.MiddleCenter, Cursor = Cursors.Hand };
+                rest.Location = new Point(Width - 52, 68); rest.Anchor = AnchorStyles.Right | AnchorStyles.Top;
                 rest.Click += (s, e) => OnRestore?.Invoke(_s.Id);
                 Controls.Add(rest);
             }
@@ -1594,7 +1744,7 @@ namespace PosSetupManager.Forms
             // 상태 컬러 점
             bool done = _s.Status == "완료";
             var statC = done ? GRN : YLW;
-            e.Graphics.FillEllipse(new SolidBrush(statC), new Rectangle(12, 18, 9, 9));
+            e.Graphics.FillEllipse(new SolidBrush(statC), new Rectangle(11, 17, 10, 10));
 
             // 매장명 + 테이블모드 뱃지
             string displayName = _s.DisplayName;
@@ -1607,11 +1757,17 @@ namespace PosSetupManager.Forms
             TextRenderer.DrawText(e.Graphics, done ? "완료" : "작성중", new Font("Segoe UI", 8.5f), new Rectangle(26, 30, 60, 16), statC, TextFormatFlags.Left);
             TextRenderer.DrawText(e.Graphics, _pct + "%", new Font("Segoe UI", 8.5f, FontStyle.Bold), new Rectangle(Width - 78, 30, 48, 16), ACC, TextFormatFlags.Right);
 
-            // 진행률 바
-            var barR = new Rectangle(10, 52, Width - 20, 5);
-            e.Graphics.FillRectangle(new SolidBrush(Color.FromArgb(220, 230, 240)), barR);
+            // 진행률 바 (둥근 모서리)
+            var barR = new Rectangle(10, 52, Width - 20, 6);
+            using (var bgPath = MkPath(barR, 3))
+                e.Graphics.FillPath(new SolidBrush(Color.FromArgb(220, 230, 240)), bgPath);
             int filled = (int)(barR.Width * _pct / 100.0);
-            if (filled > 0) e.Graphics.FillRectangle(new SolidBrush(ACC), new Rectangle(barR.X, barR.Y, filled, barR.Height));
+            if (filled > 6)
+            {
+                var fillR = new Rectangle(barR.X, barR.Y, filled, barR.Height);
+                using (var fillPath = MkPath(fillR, 3))
+                    e.Graphics.FillPath(new SolidBrush(done ? GRN : ACC), fillPath);
+            }
 
             // 날짜/시간
             TextRenderer.DrawText(e.Graphics, _s.CreatedAt.ToString("MM/dd HH:mm"), new Font("Segoe UI", 8f), new Rectangle(10, 72, 120, 16), TS, TextFormatFlags.Left);

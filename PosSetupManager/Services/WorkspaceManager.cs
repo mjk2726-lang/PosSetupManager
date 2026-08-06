@@ -94,11 +94,8 @@ namespace PosSetupManager.Services
 
             if (File.Exists(targetFile))
             {
-                // 기존 파일을 .bak으로 백업 후 교체
                 string bakFile = targetFile + ".bak";
                 File.Replace(tempFile, targetFile, bakFile);
-                // .bak 파일 삭제 (교체 성공 확인 후)
-                try { File.Delete(bakFile); } catch { }
             }
             else
             {
