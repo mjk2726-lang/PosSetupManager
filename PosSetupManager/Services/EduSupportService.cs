@@ -26,26 +26,29 @@ namespace PosSetupManager.Services
                 await _page.WaitForTimeoutAsync(1500);
 
                 // 등록 버튼
-                await _page.ClickAsync("a.btn_write", new PageClickOptions { Timeout = 8000 });
+                await _page.ClickAsync("#creteAppletDoc", new PageClickOptions { Timeout = 8000 });
                 await _page.WaitForTimeoutAsync(1000);
 
                 // 매장명 검색 버튼
-                await _page.WaitForSelectorAsync("button:has-text('검색')", new PageWaitForSelectorOptions { Timeout = 10000 });
-                await _page.ClickAsync("button:has-text('검색')", new PageClickOptions { Timeout = 5000 });
+                await _page.WaitForSelectorAsync("a.btn_minor_s", new PageWaitForSelectorOptions { Timeout = 10000 });
+                await _page.ClickAsync("a.btn_minor_s", new PageClickOptions { Timeout = 5000 });
                 await _page.WaitForTimeoutAsync(800);
 
                 // 팝업 내 검색어 입력
-                var popupInput = _page.Locator("[class*='layer'] input[type='text'], [class*='popup'] input[type='text'], [class*='modal'] input[type='text']").First;
-                await popupInput.WaitForAsync(new LocatorWaitForOptions { Timeout = 8000 });
-                await popupInput.FillAsync(storeName);
+                await _page.WaitForSelectorAsync("#searchKeyword", new PageWaitForSelectorOptions { Timeout = 8000 });
+                await _page.FillAsync("#searchKeyword", storeName);
 
                 // 팝업 내 검색 버튼 클릭
-                await _page.ClickAsync("[class*='layer'] button:has-text('검색'), [class*='popup'] button:has-text('검색'), [class*='modal'] button:has-text('검색')", new PageClickOptions { Timeout = 5000 });
+                await _page.ClickAsync("#searchBtn", new PageClickOptions { Timeout = 5000 });
                 await _page.WaitForTimeoutAsync(1000);
 
                 // 결과에서 매장명 클릭
                 var result = _page.Locator("td").Filter(new LocatorFilterOptions { HasText = storeName });
                 await result.First.ClickAsync(new LocatorClickOptions { Force = true, Timeout = 8000 });
+                await _page.WaitForTimeoutAsync(500);
+
+                // 팝업 닫기
+                await _page.ClickAsync("a[title='닫기']", new PageClickOptions { Timeout = 5000 });
                 await _page.WaitForTimeoutAsync(800);
 
                 // 확인 버튼
