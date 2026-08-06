@@ -58,7 +58,11 @@ namespace PosSetupManager.Services
 
                 // 확인 버튼
                 await _page.ClickAsync("a.btn_major.btn-confirm", new PageClickOptions { Timeout = 8000 });
-                await _page.WaitForTimeoutAsync(2000);
+
+                // 등록 성공 여부 확인 (URL이 /doc/new → /doc/{id} 로 변경됨)
+                await _page.WaitForURLAsync(
+                    url => url.Contains("/applet/32498/doc/") && !url.Contains("/new"),
+                    new PageWaitForURLOptions { Timeout = 15000 });
 
                 return Tuple.Create(true, (string)null);
             }
