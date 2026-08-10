@@ -451,7 +451,6 @@ namespace PosSetupManager.Forms
             if (tabPages[idx] != null) tabPages[idx].Visible = true;
             RefreshSidebar();
             AutoSave();
-            RefreshStoreList();
         }
 
         private Panel MakePage(Panel c, int idx)
@@ -526,7 +525,7 @@ namespace PosSetupManager.Forms
             AddFL(card, "설치 예정 시간", 450, cy); cy += 26;
 
             txtStoreName = AddRTB(card, 0, cy, 204);
-            txtStoreName.TextChanged += (s, e) => { AutoSave(); RefreshStoreList(); };
+            txtStoreName.TextChanged += (s, e) => { AutoSave(); };
             dtpInstallDate = new RoundDateTimePicker { Location = new Point(220, cy), Width = 220, Height = 36, Format = DateTimePickerFormat.Short };
             dtpInstallDate.Inner.Value = DateTime.Today;
             card.Controls.Add(dtpInstallDate);
@@ -569,9 +568,9 @@ namespace PosSetupManager.Forms
             rbTableNone = new RadioButton { Text = "비연동", Location = new Point(352, cy + 7), AutoSize = true, Font = FluentFonts.Body };
             GroupRBs(rbTablePost, rbTablePre, rbTableNone);
             rbTablePre.CheckedChanged += (s2, e2) => { if (pnlPrepaid != null) pnlPrepaid.Visible = rbTablePre.Checked; };
-            rbTablePost.CheckedChanged += (s2, e2) => { AutoSave(); RefreshStoreList(); };
-            rbTablePre.CheckedChanged += (s2, e2) => { AutoSave(); RefreshStoreList(); };
-            rbTableNone.CheckedChanged += (s2, e2) => { AutoSave(); RefreshStoreList(); };
+            rbTablePost.CheckedChanged += (s2, e2) => { AutoSave(); };
+            rbTablePre.CheckedChanged += (s2, e2) => { AutoSave(); };
+            rbTableNone.CheckedChanged += (s2, e2) => { AutoSave(); };
             card.Controls.AddRange(new Control[] { rbTablePost, rbTablePre, rbTableNone });
             cy += 54;
 
@@ -1589,9 +1588,11 @@ namespace PosSetupManager.Forms
             tb.Inner.TextChanged += (s, e) =>
             {
                 if (fmt) return;
+                string raw = tb.Inner.Text;
+                // 숫자/대시 외 문자(한글 등)가 있으면 포맷 적용 안 함
+                if (raw.Any(c => !char.IsDigit(c) && c != '-')) return;
                 fmt = true;
                 int caret = tb.Inner.SelectionStart;
-                string raw = tb.Inner.Text;
                 int digitsBeforeCaret = raw.Take(Math.Min(caret, raw.Length)).Count(char.IsDigit);
                 string formatted = FormatPhone(new string(raw.Where(char.IsDigit).ToArray()));
                 tb.Inner.Text = formatted;
