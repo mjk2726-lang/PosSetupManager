@@ -66,19 +66,50 @@ function currentSession() {
       || S.sessions.completed.find(s => s.id === S.currentId);
 }
 
-// ── Time options ───────────────────────────────────
-function buildTimeOptions(sel) {
-  const cur = sel.value;
-  sel.innerHTML = '<option value="">선택</option>';
-  for (let h = 8; h <= 20; h++) {
-    const t1 = pad(h) + ':00';
-    const t2 = pad(h) + ':30';
-    sel.appendChild(new Option(t1, t1));
-    if (h < 20) sel.appendChild(new Option(t2, t2));
-  }
-  if (cur) sel.value = cur;
-}
+// ── Time datalist ──────────────────────────────────
 function pad(n) { return n < 10 ? '0' + n : '' + n; }
+
+function buildTimeDatelist() {
+  const dl = $('time-list');
+  if (!dl) return;
+  for (let h = 8; h <= 20; h++) {
+    const o1 = document.createElement('option'); o1.value = pad(h) + ':00'; dl.appendChild(o1);
+    if (h < 20) { const o2 = document.createElement('option'); o2.value = pad(h) + ':30'; dl.appendChild(o2); }
+  }
+}
+
+// ── Router autocomplete (localStorage) ────────────
+const AC_PREFIX = 'router_ac_';
+const AC_MAX = 10;
+
+function acLoad(key) {
+  try { return JSON.parse(localStorage.getItem(AC_PREFIX + key) || '[]'); } catch { return []; }
+}
+function acSave(key, value) {
+  if (!value || !value.trim()) return;
+  let list = acLoad(key).filter(v => v !== value);
+  list.unshift(value);
+  if (list.length > AC_MAX) list = list.slice(0, AC_MAX);
+  localStorage.setItem(AC_PREFIX + key, JSON.stringify(list));
+}
+function acRefreshDatalist(key) {
+  const dl = $('dl-' + key);
+  if (!dl) return;
+  dl.innerHTML = '';
+  acLoad(key).forEach(v => { const o = document.createElement('option'); o.value = v; dl.appendChild(o); });
+}
+function initRouterAutocomplete() {
+  document.querySelectorAll('.router-ac').forEach(inp => {
+    const key = inp.dataset.acKey;
+    if (!key) return;
+    acRefreshDatalist(key);
+    inp.addEventListener('blur', () => {
+      if (!inp.value.trim()) return;
+      acSave(key, inp.value.trim());
+      acRefreshDatalist(key);
+    });
+  });
+}
 
 // ── Progress calculation ───────────────────────────
 function calcProgress(session) {
@@ -288,12 +319,6 @@ function loadForm(session) {
     });
   });
 
-  // Checkboxes
-  const chkMenuBoard = $('chk-localModeMenuBoard');
-  const chkNoticeBoard = $('chk-localModeNoticeBoard');
-  if (chkMenuBoard) chkMenuBoard.checked = !!d.checklist.localModeMenuBoard;
-  if (chkNoticeBoard) chkNoticeBoard.checked = !!d.checklist.localModeNoticeBoard;
-
   // WiFi status
   const wifiRg = $('rg-wifiStatus');
   if (wifiRg) {
@@ -502,18 +527,32 @@ document.querySelectorAll('.tag-grid').forEach(tg => {
   });
 });
 
-// Checkbox: localMode
-[$('chk-localModeMenuBoard'), $('chk-localModeNoticeBoard')].forEach(el => {
+
+// ── Time format on blur ────────────────────────────
+['f-installTime','f-startTime','f-endTime','f-linkEndTime'].forEach(id => {
+  const el = $(id);
   if (!el) return;
-  el.addEventListener('change', () => {
-    if (_loading) return;
-    const session = currentSession();
-    if (!session) return;
-    if (el.id === 'chk-localModeMenuBoard') session.data.checklist.localModeMenuBoard = el.checked;
-    if (el.id === 'chk-localModeNoticeBoard') session.data.checklist.localModeNoticeBoard = el.checked;
-    scheduleSave();
+  el.addEventListener('blur', () => {
+    const formatted = fmtTime(el.value);
+    if (formatted && formatted !== el.value) {
+      el.value = formatted;
+      el.dispatchEvent(new Event('input'));
+    }
   });
 });
+
+function fmtTime(s) {
+  if (!s) return s;
+  s = s.trim().replace(':', '');
+  if (s.length === 1) s = '0' + s + '00';
+  if (s.length === 2) s = s + '00';
+  if (s.length === 3) s = '0' + s;
+  if (s.length === 4) {
+    const h = parseInt(s.slice(0, 2), 10), m = parseInt(s.slice(2), 10);
+    if (h < 24 && m < 60) return pad(h) + ':' + pad(m);
+  }
+  return s;
+}
 
 // ── Auto save ──────────────────────────────────────
 function scheduleSave() {
@@ -737,12 +776,8 @@ window.App = {
 
 // ── Init ───────────────────────────────────────────
 (function init() {
-  // Build time selects
-  ['f-installTime','f-startTime','f-endTime','f-linkEndTime'].forEach(id => {
-    const el = $(id); if (el) buildTimeOptions(el);
-  });
-
-  Bridge.on('sessions', () => {}); // ensure registered before send
+  buildTimeDatelist();
+  initRouterAutocomplete();
   Bridge.send('getSessions');
 })();
 

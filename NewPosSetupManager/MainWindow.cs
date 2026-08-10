@@ -44,10 +44,6 @@ namespace NewPosSetupManager
                 _bridge = new BridgeHandler(_webView, _workspace, this);
                 _webView.WebMessageReceived += _bridge.OnWebMessageReceived;
 
-#if DEBUG
-                _webView.CoreWebView2.OpenDevToolsWindow();
-#endif
-
                 _webView.CoreWebView2.Navigate("https://app.local/index.html");
             }
             catch (Exception ex)

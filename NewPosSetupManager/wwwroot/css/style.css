@@ -268,11 +268,12 @@ textarea.fi { height: auto; padding: 8px 10px; resize: vertical; min-height: 80p
 .radio-option.sel { border-color: var(--accent); background: var(--accent-light); color: var(--accent); font-weight: 600; }
 
 /* Tag checkboxes (POS types) */
-.tag-grid { display: flex; flex-wrap: wrap; gap: 6px; }
+.tag-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
 .tag {
-  padding: 5px 12px; border: 1.5px solid var(--border); border-radius: 20px;
-  font-size: 12px; cursor: pointer; background: var(--surface);
+  padding: 8px 10px; border: 1.5px solid var(--border); border-radius: 8px;
+  font-size: 12.5px; cursor: pointer; background: var(--surface);
   transition: all var(--trans); user-select: none;
+  text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .tag:hover { border-color: #b0b8c8; background: var(--bg); }
 .tag.sel { border-color: var(--accent); background: var(--accent-light); color: var(--accent); font-weight: 600; }

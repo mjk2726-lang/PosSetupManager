@@ -110,9 +110,7 @@
               </div>
               <div class="fg">
                 <label>설치 예정 시간</label>
-                <select class="fi" id="f-installTime" data-path="basic.installTime">
-                  <option value="">선택</option>
-                </select>
+                <input class="fi" type="text" id="f-installTime" list="time-list" placeholder="08:00" data-path="basic.installTime" autocomplete="off">
               </div>
             </div>
             <div class="form-row cols-2" style="margin-top:12px">
@@ -135,21 +133,15 @@
             <div class="form-row cols-4">
               <div class="fg">
                 <label>작업 시작 시간 <span style="color:var(--accent)">*</span></label>
-                <select class="fi" id="f-startTime" data-path="basic.startTime">
-                  <option value="">선택</option>
-                </select>
+                <input class="fi" type="text" id="f-startTime" list="time-list" placeholder="09:00" data-path="basic.startTime" autocomplete="off">
               </div>
               <div class="fg">
                 <label>작업 종료 시간 <span style="color:var(--accent)">*</span></label>
-                <select class="fi" id="f-endTime" data-path="basic.endTime">
-                  <option value="">선택</option>
-                </select>
+                <input class="fi" type="text" id="f-endTime" list="time-list" placeholder="18:00" data-path="basic.endTime" autocomplete="off">
               </div>
               <div class="fg">
                 <label>연동 종료 시간</label>
-                <select class="fi" id="f-linkEndTime" data-path="basic.linkEndTime">
-                  <option value="">선택</option>
-                </select>
+                <input class="fi" type="text" id="f-linkEndTime" list="time-list" placeholder="17:30" data-path="basic.linkEndTime" autocomplete="off">
               </div>
               <div class="fg">
                 <label>소요 시간 (자동계산)</label>
@@ -285,13 +277,19 @@
 
           <div class="form-section">
             <div class="section-title">로컬 모드 설정</div>
-            <div class="check-row" id="chk-localMode">
-              <label class="check-option" data-path="checklist.localModeMenuBoard">
-                <input type="checkbox" id="chk-localModeMenuBoard"> 로컬 모드 — 메뉴판
-              </label>
-              <label class="check-option" data-path="checklist.localModeNoticeBoard">
-                <input type="checkbox" id="chk-localModeNoticeBoard"> 로컬 모드 — 알림판
-              </label>
+            <div class="checklist-row">
+              <div class="checklist-label">로컬 모드 — 메뉴판</div>
+              <div class="ox-group" id="ox-localModeMenuBoard" data-path="checklist.localModeMenuBoard">
+                <button class="ox-btn O" data-val="O">O</button>
+                <button class="ox-btn X" data-val="X">X</button>
+              </div>
+            </div>
+            <div class="checklist-row">
+              <div class="checklist-label">로컬 모드 — 알림판</div>
+              <div class="ox-group" id="ox-localModeNoticeBoard" data-path="checklist.localModeNoticeBoard">
+                <button class="ox-btn O" data-val="O">O</button>
+                <button class="ox-btn X" data-val="X">X</button>
+              </div>
             </div>
           </div>
 
@@ -300,23 +298,28 @@
             <div class="form-row cols-2">
               <div class="fg">
                 <label>KT 공유기</label>
-                <input class="fi" type="text" id="f-routerKT" placeholder="계정 정보" data-path="network.routerKT">
+                <input class="fi router-ac" type="text" id="f-routerKT" list="dl-routerKT" placeholder="계정 정보" data-path="network.routerKT" data-ac-key="routerKT" autocomplete="off">
+                <datalist id="dl-routerKT"></datalist>
               </div>
               <div class="fg">
                 <label>LG 공유기</label>
-                <input class="fi" type="text" id="f-routerLG" placeholder="계정 정보" data-path="network.routerLG">
+                <input class="fi router-ac" type="text" id="f-routerLG" list="dl-routerLG" placeholder="계정 정보" data-path="network.routerLG" data-ac-key="routerLG" autocomplete="off">
+                <datalist id="dl-routerLG"></datalist>
               </div>
               <div class="fg">
                 <label>SK 공유기</label>
-                <input class="fi" type="text" id="f-routerSK" placeholder="계정 정보" data-path="network.routerSK">
+                <input class="fi router-ac" type="text" id="f-routerSK" list="dl-routerSK" placeholder="계정 정보" data-path="network.routerSK" data-ac-key="routerSK" autocomplete="off">
+                <datalist id="dl-routerSK"></datalist>
               </div>
               <div class="fg">
                 <label>ipTIME 공유기</label>
-                <input class="fi" type="text" id="f-routerIpTime" placeholder="계정 정보" data-path="network.routerIpTime">
+                <input class="fi router-ac" type="text" id="f-routerIpTime" list="dl-routerIpTime" placeholder="계정 정보" data-path="network.routerIpTime" data-ac-key="routerIpTime" autocomplete="off">
+                <datalist id="dl-routerIpTime"></datalist>
               </div>
               <div class="fg">
                 <label>기타 공유기</label>
-                <input class="fi" type="text" id="f-routerEtc" placeholder="계정 정보" data-path="network.routerEtc">
+                <input class="fi router-ac" type="text" id="f-routerEtc" list="dl-routerEtc" placeholder="계정 정보" data-path="network.routerEtc" data-ac-key="routerEtc" autocomplete="off">
+                <datalist id="dl-routerEtc"></datalist>
               </div>
             </div>
           </div>
@@ -546,6 +549,9 @@
   </div><!-- end main -->
 
 </div><!-- end app -->
+
+<!-- 시간 선택 datalist -->
+<datalist id="time-list"></datalist>
 
 <div id="toast" class="toast"></div>
 

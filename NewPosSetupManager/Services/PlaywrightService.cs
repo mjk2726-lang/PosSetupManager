@@ -66,7 +66,7 @@ namespace NewPosSetupManager.Services
                 progress?.Report("체크리스트 입력 중...");
                 await input.FillOx("_x9b6k17mv", d.Checklist.CheckExternalIP);
                 await input.FillOx("_yp0217xro", d.Checklist.CheckDHCP);
-                await input.FillLocalMode(d.Checklist.LocalModeMenuBoard, d.Checklist.LocalModeNoticeBoard);
+                await input.FillLocalMode(d.Checklist.LocalModeMenuBoard == "O", d.Checklist.LocalModeNoticeBoard == "O");
                 await input.FillOx("_mh5liezmo", d.Checklist.CheckFirewall);
                 await input.FillOx("_dmn3c8mu6", d.Checklist.CheckFirewallPopup);
                 await input.FillSelect("_64h1g11ex", d.Checklist.OrderPosCount);
@@ -75,7 +75,7 @@ namespace NewPosSetupManager.Services
                 await input.FillOx("_0xsazai6o", d.Checklist.CheckSyncOrder);
 
                 if (d.Pos.TableMode == "선불")
-                    await input.FillPrepaid(d.Checklist.PrepaidTableCheck, d.Checklist.PrepaidPaymentCheck, d.Checklist.PrepaidOver5Man, d.Checklist.PrepaidKSNET);
+                    await input.FillPrepaid(d.Checklist.PrepaidTableCheck == "O", d.Checklist.PrepaidPaymentCheck == "O", d.Checklist.PrepaidOver5Man == "O", d.Checklist.PrepaidKSNET == "O");
 
                 await input.FillOx("_zq9djt6dq", d.Checklist.CheckTableSort);
                 await input.ClickByLabel("_llnvlcz2d", d.Checklist.WifiStatus);

@@ -8,8 +8,8 @@ namespace NewPosSetupManager.Models
         public string CheckExternalIP { get; set; } = "";
         public string CheckDHCP { get; set; } = "";
         // 로컬모드 체크박스 (메뉴판/알림판)
-        public bool LocalModeMenuBoard { get; set; } = false;
-        public bool LocalModeNoticeBoard { get; set; } = false;
+        public string LocalModeMenuBoard { get; set; } = "";
+        public string LocalModeNoticeBoard { get; set; } = "";
         public string CheckFirewall { get; set; } = "";
         public string CheckFirewallPopup { get; set; } = "";
         public string OrderPosCount { get; set; } = "X";
@@ -17,10 +17,10 @@ namespace NewPosSetupManager.Models
         public string CheckHiorderLogin { get; set; } = "";
         public string CheckSyncOrder { get; set; } = "";
         // 선불 매장
-        public bool PrepaidTableCheck { get; set; } = false;
-        public bool PrepaidPaymentCheck { get; set; } = false;
-        public bool PrepaidOver5Man { get; set; } = false;
-        public bool PrepaidKSNET { get; set; } = false;
+        public string PrepaidTableCheck { get; set; } = "";
+        public string PrepaidPaymentCheck { get; set; } = "";
+        public string PrepaidOver5Man { get; set; } = "";
+        public string PrepaidKSNET { get; set; } = "";
         public string CheckTableSort { get; set; } = "";
         // "좋음" | "양호" | "불량"
         public string WifiStatus { get; set; } = "";
