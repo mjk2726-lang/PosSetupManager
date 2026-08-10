@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>POS Setup Manager</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="app">
+
+  <!-- ━━━ SIDEBAR ━━━ -->
+  <aside class="sidebar">
+    <div class="sidebar-top">
+      <div class="brand">
+        <span class="brand-icon">⚙</span>
+        <span class="brand-name">POS Setup Manager</span>
+      </div>
+      <div class="search-wrap">
+        <input type="text" id="searchInput" placeholder="매장 검색...">
+      </div>
+    </div>
+
+    <div class="sidebar-label">
+      <span>진행중</span>
+      <span class="badge-count" id="activeCount">0</span>
+    </div>
+    <div class="store-list" id="activeList"></div>
+
+    <div class="sidebar-label toggle-completed" id="toggleCompleted" style="cursor:pointer">
+      <span><span class="toggle-arrow" id="toggleArrow">▶</span> 완료됨</span>
+      <span class="badge-count" id="completedCount">0</span>
+    </div>
+    <div class="store-list hidden" id="completedList"></div>
+    <div class="completed-actions hidden" id="completedActions">
+      <button class="btn-danger" id="btnDeleteBatch" style="height:28px;font-size:12px;padding:0 10px">완료 목록 전체 삭제</button>
+    </div>
+
+    <div class="sidebar-bottom">
+      <div class="sidebar-bottom-row">
+        <button class="btn-sidebar" id="btnNew" style="flex:1">
+          <span>＋</span> 새 매장
+        </button>
+        <button class="btn-settings" id="btnSettings" title="설정">⚙</button>
+      </div>
+      <button class="btn-sidebar" id="btnCalendar">
+        <span>📅</span> 캘린더에서 가져오기
+      </button>
+    </div>
+  </aside>
+
+  <!-- ━━━ MAIN ━━━ -->
+  <div class="main">
+    <!-- Empty state -->
+    <div class="empty-state" id="emptyState">
+      <div class="empty-icon">📋</div>
+      <div class="empty-title">매장을 선택하세요</div>
+      <div class="empty-desc">좌측에서 매장을 선택하거나 새 매장을 추가하세요</div>
+      <button class="btn-primary" style="margin-top:8px" onclick="App.addSession()">＋ 새 매장 추가</button>
+    </div>
+
+    <!-- Session view -->
+    <div class="session-view hidden" id="sessionView">
+
+      <!-- Header -->
+      <div class="s-header">
+        <div class="s-header-left">
+          <div class="s-title" id="sTitle">매장명</div>
+          <div class="s-meta">
+            <span class="s-badge idle" id="sBadge">작성중</span>
+            <span class="s-date" id="sDate"></span>
+          </div>
+        </div>
+        <div class="s-header-right">
+          <div class="prog-wrap">
+            <div class="prog-bar"><div class="prog-fill" id="progFill" style="width:0%"></div></div>
+            <span class="prog-text" id="progText">0%</span>
+          </div>
+          <button class="btn-primary" id="btnComplete">✔ 작업 완료</button>
+          <button class="btn-secondary" id="btnRestore" style="display:none">↩ 복원</button>
+          <button class="btn-danger" id="btnDelete">삭제</button>
+        </div>
+      </div>
+
+      <!-- Tab bar -->
+      <div class="tab-bar">
+        <button class="tab-btn active" data-tab="0">기본정보 <span class="tab-done-dot hidden" id="dot0"></span></button>
+        <button class="tab-btn" data-tab="1">POS 설정 <span class="tab-done-dot hidden" id="dot1"></span></button>
+        <button class="tab-btn" data-tab="2">공유기 / 네트워크 <span class="tab-done-dot hidden" id="dot2"></span></button>
+        <button class="tab-btn" data-tab="3">체크리스트 <span class="tab-done-dot hidden" id="dot3"></span></button>
+        <button class="tab-btn" data-tab="4">완료</button>
+      </div>
+
+      <!-- Tab body -->
+      <div class="tab-body">
+
+        <!-- ══ TAB 0: 기본정보 ══ -->
+        <div class="tab-page active" id="page0">
+
+          <div class="form-section">
+            <div class="section-title">매장 정보</div>
+            <div class="form-row cols-2">
+              <div class="fg" style="flex:2">
+                <label>매장명 <span style="color:var(--accent)">*</span></label>
+                <input class="fi" type="text" id="f-storeName" placeholder="매장명 입력" data-path="basic.storeName">
+              </div>
+              <div class="fg">
+                <label>설치 예정일</label>
+                <input class="fi" type="date" id="f-installDate" data-path="basic.installDate">
+              </div>
+              <div class="fg">
+                <label>설치 예정 시간</label>
+                <select class="fi" id="f-installTime" data-path="basic.installTime">
+                  <option value="">선택</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-row cols-2" style="margin-top:12px">
+              <div class="fg">
+                <label>원격 담당자</label>
+                <input class="fi" type="text" id="f-remoteManager" placeholder="담당자명" data-path="basic.remoteManager">
+              </div>
+              <div class="fg">
+                <label>엔지니어 연락처</label>
+                <div class="fi-phone">
+                  <input class="fi" type="text" id="f-engineerContact" placeholder="010-0000-0000" data-path="basic.engineerContact">
+                  <button class="btn-call" onclick="App.callPhone('f-engineerContact')">📞 전화</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-section">
+            <div class="section-title">작업 시간</div>
+            <div class="form-row cols-4">
+              <div class="fg">
+                <label>작업 시작 시간 <span style="color:var(--accent)">*</span></label>
+                <select class="fi" id="f-startTime" data-path="basic.startTime">
+                  <option value="">선택</option>
+                </select>
+              </div>
+              <div class="fg">
+                <label>작업 종료 시간 <span style="color:var(--accent)">*</span></label>
+                <select class="fi" id="f-endTime" data-path="basic.endTime">
+                  <option value="">선택</option>
+                </select>
+              </div>
+              <div class="fg">
+                <label>연동 종료 시간</label>
+                <select class="fi" id="f-linkEndTime" data-path="basic.linkEndTime">
+                  <option value="">선택</option>
+                </select>
+              </div>
+              <div class="fg">
+                <label>소요 시간 (자동계산)</label>
+                <input class="fi" type="text" id="f-elapsedTime" readonly data-path="basic.elapsedTime" placeholder="자동계산">
+              </div>
+            </div>
+            <div class="btn-row" style="margin-top:12px">
+              <button class="btn-secondary" id="btnStartWork">▶ 작업 시작</button>
+              <button class="btn-secondary" id="btnFinishWork">✔ 작업 완료</button>
+            </div>
+          </div>
+
+          <div class="form-section">
+            <div class="section-title">테이블 모드</div>
+            <div class="radio-row" id="rg-tableMode" data-path="basic.tableMode">
+              <label class="radio-option" data-val="후불"><input type="radio" name="tableMode" value="후불"> 후불</label>
+              <label class="radio-option" data-val="선불"><input type="radio" name="tableMode" value="선불"> 선불</label>
+              <label class="radio-option" data-val="비연동"><input type="radio" name="tableMode" value="비연동"> 비연동</label>
+            </div>
+          </div>
+
+          <div class="form-section">
+            <div class="section-title">메모 / 문자 전송</div>
+            <div class="fg">
+              <label>문자 내용</label>
+              <textarea class="fi" id="f-smsMessage" placeholder="전송할 내용 입력..." data-path="finish.smsMessage" style="min-height:70px"></textarea>
+            </div>
+            <div class="btn-row" style="margin-top:10px">
+              <button class="btn-secondary" id="btnSendSms">📱 문자 전송</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- ══ TAB 1: POS 설정 ══ -->
+        <div class="tab-page" id="page1">
+
+          <div class="form-section">
+            <div class="section-title">원격 계정</div>
+            <div class="checklist-row">
+              <div>
+                <div class="checklist-label">원격 계정 종류</div>
+              </div>
+              <div class="radio-row" id="rg-remoteAccount" data-path="pos.remoteAccount">
+                <label class="radio-option" data-val="LMM"><input type="radio" name="remoteAccount" value="LMM"> LMM</label>
+                <label class="radio-option" data-val="크롬"><input type="radio" name="remoteAccount" value="크롬"> 크롬</label>
+                <label class="radio-option" data-val="씨트롬"><input type="radio" name="remoteAccount" value="씨트롬"> 씨트롬</label>
+                <label class="radio-option" data-val="기타"><input type="radio" name="remoteAccount" value="기타"> 기타</label>
+              </div>
+            </div>
+            <div class="checklist-row">
+              <div>
+                <div class="checklist-label">원격 어드민</div>
+              </div>
+              <div class="radio-row" id="rg-remoteAdmin" data-path="pos.remoteAdmin">
+                <label class="radio-option" data-val="동일"><input type="radio" name="remoteAdmin" value="동일"> 동일</label>
+                <label class="radio-option" data-val="다름"><input type="radio" name="remoteAdmin" value="다름"> 다름</label>
+              </div>
+            </div>
+            <div class="checklist-row">
+              <div>
+                <div class="checklist-label">LMM 매장명</div>
+              </div>
+              <div class="ox-group" id="ox-lmmAccount" data-path="pos.lmmAccount">
+                <button class="ox-btn O" data-val="O">O</button>
+                <button class="ox-btn X" data-val="X">X</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-section">
+            <div class="section-title">POS 종류 <span style="color:var(--text2);font-size:12px;font-weight:400">(2개 이상 선택)</span></div>
+            <div class="tag-grid" id="tg-posTypes" data-path="pos.posTypes">
+              <div class="tag" data-val="이지포스">이지포스</div>
+              <div class="tag" data-val="엠포스">엠포스</div>
+              <div class="tag" data-val="스마일포스">스마일포스</div>
+              <div class="tag" data-val="오케이포스">오케이포스</div>
+              <div class="tag" data-val="메이트포스">메이트포스</div>
+              <div class="tag" data-val="배달포스">배달포스</div>
+              <div class="tag" data-val="K포스">K포스</div>
+              <div class="tag" data-val="하이픈포스(개통불가)">하이픈포스(개통불가)</div>
+              <div class="tag" data-val="유니온포스">유니온포스</div>
+              <div class="tag" data-val="키움포스">키움포스</div>
+              <div class="tag" data-val="팝스(웨이브포스)">팝스(웨이브포스)</div>
+              <div class="tag" data-val="링크포스">링크포스</div>
+              <div class="tag" data-val="포스마스터(티페이)">포스마스터(티페이)</div>
+              <div class="tag" data-val="퍼스트포스">퍼스트포스</div>
+              <div class="tag" data-val="에어포스">에어포스</div>
+              <div class="tag" data-val="토스포스">토스포스</div>
+              <div class="tag" data-val="포스메이커스(개통불가)">포스메이커스(개통불가)</div>
+              <div class="tag" data-val="윙스포스">윙스포스</div>
+              <div class="tag" data-val="안시포스">안시포스</div>
+              <div class="tag" data-val="기타">기타</div>
+              <div class="tag" data-val="연동안함">연동안함</div>
+              <div class="tag" data-val="타밴">타밴</div>
+              <div class="tag" data-val="우리밴">우리밴</div>
+            </div>
+          </div>
+
+          <div class="form-section">
+            <div class="section-title">테이블 모드</div>
+            <div class="radio-row" id="rg-tableMode2" data-path="pos.tableMode">
+              <label class="radio-option" data-val="후불"><input type="radio" name="tableMode2" value="후불"> 후불</label>
+              <label class="radio-option" data-val="선불"><input type="radio" name="tableMode2" value="선불"> 선불</label>
+              <label class="radio-option" data-val="비연동"><input type="radio" name="tableMode2" value="비연동"> 비연동</label>
+            </div>
+          </div>
+        </div>
+
+        <!-- ══ TAB 2: 공유기 / 네트워크 ══ -->
+        <div class="tab-page" id="page2">
+
+          <div class="form-section">
+            <div class="section-title">기본 네트워크 확인</div>
+            <div class="checklist-row">
+              <div>
+                <div class="checklist-label">외부 공인 IP 확인</div>
+              </div>
+              <div class="ox-group" id="ox-checkExternalIP" data-path="checklist.checkExternalIP">
+                <button class="ox-btn O" data-val="O">O</button>
+                <button class="ox-btn X" data-val="X">X</button>
+              </div>
+            </div>
+            <div class="checklist-row">
+              <div>
+                <div class="checklist-label">DHCP 및 포트포워딩 설정</div>
+              </div>
+              <div class="ox-group" id="ox-checkDHCP" data-path="checklist.checkDHCP">
+                <button class="ox-btn O" data-val="O">O</button>
+                <button class="ox-btn X" data-val="X">X</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-section">
+            <div class="section-title">로컬 모드 설정</div>
+            <div class="check-row" id="chk-localMode">
+              <label class="check-option" data-path="checklist.localModeMenuBoard">
+                <input type="checkbox" id="chk-localModeMenuBoard"> 로컬 모드 — 메뉴판
+              </label>
+              <label class="check-option" data-path="checklist.localModeNoticeBoard">
+                <input type="checkbox" id="chk-localModeNoticeBoard"> 로컬 모드 — 알림판
+              </label>
+            </div>
+          </div>
+
+          <div class="form-section">
+            <div class="section-title">공유기 계정</div>
+            <div class="form-row cols-2">
+              <div class="fg">
+                <label>KT 공유기</label>
+                <input class="fi" type="text" id="f-routerKT" placeholder="계정 정보" data-path="network.routerKT">
+              </div>
+              <div class="fg">
+                <label>LG 공유기</label>
+                <input class="fi" type="text" id="f-routerLG" placeholder="계정 정보" data-path="network.routerLG">
+              </div>
+              <div class="fg">
+                <label>SK 공유기</label>
+                <input class="fi" type="text" id="f-routerSK" placeholder="계정 정보" data-path="network.routerSK">
+              </div>
+              <div class="fg">
+                <label>ipTIME 공유기</label>
+                <input class="fi" type="text" id="f-routerIpTime" placeholder="계정 정보" data-path="network.routerIpTime">
+              </div>
+              <div class="fg">
+                <label>기타 공유기</label>
+                <input class="fi" type="text" id="f-routerEtc" placeholder="계정 정보" data-path="network.routerEtc">
+              </div>
+            </div>
+          </div>
+
+          <div class="form-section">
+            <div class="section-title">와이파이 / IP 정보</div>
+            <div class="form-row cols-2">
+              <div class="fg">
+                <label>와이파이 계정 / 비밀번호</label>
+                <input class="fi" type="text" id="f-wifiAccount" placeholder="SSID / 비밀번호" data-path="network.wifiAccount">
+              </div>
+              <div class="fg">
+                <label>메인 포스 내부 IP</label>
+                <input class="fi" type="text" id="f-mainPosInternalIP" placeholder="192.168.x.x" data-path="network.mainPosInternalIP">
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ══ TAB 3: 체크리스트 ══ -->
+        <div class="tab-page" id="page3">
+
+          <div class="form-section">
+            <div class="section-title">방화벽</div>
+            <div class="checklist-row">
+              <div class="checklist-label">방화벽 OFF</div>
+              <div class="ox-group" id="ox-checkFirewall" data-path="checklist.checkFirewall">
+                <button class="ox-btn O" data-val="O">O</button>
+                <button class="ox-btn X" data-val="X">X</button>
+              </div>
+            </div>
+            <div class="checklist-row">
+              <div class="checklist-label">방화벽 팝업 OFF</div>
+              <div class="ox-group" id="ox-checkFirewallPopup" data-path="checklist.checkFirewallPopup">
+                <button class="ox-btn O" data-val="O">O</button>
+                <button class="ox-btn X" data-val="X">X</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-section">
+            <div class="section-title">오더 포스</div>
+            <div class="form-row cols-2" style="align-items:end">
+              <div class="fg">
+                <label>오더 포스 갯수</label>
+                <select class="fi" id="f-orderPosCount" data-path="checklist.orderPosCount">
+                  <option value="">선택</option>
+                  <option value="0">0대</option>
+                  <option value="1">1대</option>
+                  <option value="2">2대</option>
+                  <option value="3">3대</option>
+                  <option value="4">4대</option>
+                  <option value="5">5대</option>
+                  <option value="6">6대 이상</option>
+                </select>
+              </div>
+              <div class="fg">
+                <label>오더 포스 특이사항</label>
+                <input class="fi" type="text" id="f-orderPosNote" placeholder="특이사항 입력" data-path="checklist.orderPosNote">
+              </div>
+            </div>
+            <div class="checklist-row" style="margin-top:12px">
+              <div class="checklist-label">하이오더 포스 계정 로그인</div>
+              <div class="ox-group" id="ox-checkHiorderLogin" data-path="checklist.checkHiorderLogin">
+                <button class="ox-btn O" data-val="O">O</button>
+                <button class="ox-btn X" data-val="X">X</button>
+              </div>
+            </div>
+            <div class="checklist-row">
+              <div class="checklist-label">동기화 및 주문 테스트 출력</div>
+              <div class="ox-group" id="ox-checkSyncOrder" data-path="checklist.checkSyncOrder">
+                <button class="ox-btn O" data-val="O">O</button>
+                <button class="ox-btn X" data-val="X">X</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-section" id="prepaidSection">
+            <div class="section-title">선불 매장 확인</div>
+            <div class="checklist-row">
+              <div class="checklist-label">테이블 대기 체크</div>
+              <div class="ox-group" id="ox-prepaidTableCheck" data-path="checklist.prepaidTableCheck">
+                <button class="ox-btn O" data-val="O">O</button>
+                <button class="ox-btn X" data-val="X">X</button>
+              </div>
+            </div>
+            <div class="checklist-row">
+              <div class="checklist-label">결제 체크</div>
+              <div class="ox-group" id="ox-prepaidPaymentCheck" data-path="checklist.prepaidPaymentCheck">
+                <button class="ox-btn O" data-val="O">O</button>
+                <button class="ox-btn X" data-val="X">X</button>
+              </div>
+            </div>
+            <div class="checklist-row">
+              <div class="checklist-label">5인 이상 체크</div>
+              <div class="ox-group" id="ox-prepaidOver5Man" data-path="checklist.prepaidOver5Man">
+                <button class="ox-btn O" data-val="O">O</button>
+                <button class="ox-btn X" data-val="X">X</button>
+              </div>
+            </div>
+            <div class="checklist-row">
+              <div class="checklist-label">KSNET 결제</div>
+              <div class="ox-group" id="ox-prepaidKSNET" data-path="checklist.prepaidKSNET">
+                <button class="ox-btn O" data-val="O">O</button>
+                <button class="ox-btn X" data-val="X">X</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-section">
+            <div class="section-title">기타 체크</div>
+            <div class="checklist-row">
+              <div class="checklist-label">테이블 정렬 확인</div>
+              <div class="ox-group" id="ox-checkTableSort" data-path="checklist.checkTableSort">
+                <button class="ox-btn O" data-val="O">O</button>
+                <button class="ox-btn X" data-val="X">X</button>
+              </div>
+            </div>
+            <div class="checklist-row">
+              <div>
+                <div class="checklist-label">와이파이 상태</div>
+              </div>
+              <div class="wifi-row" id="rg-wifiStatus" data-path="checklist.wifiStatus" style="width:220px">
+                <div class="wifi-opt good" data-val="좋음">좋음</div>
+                <div class="wifi-opt ok" data-val="양호">양호</div>
+                <div class="wifi-opt bad" data-val="불량">불량</div>
+              </div>
+            </div>
+            <div class="checklist-row">
+              <div class="checklist-label">메뉴 이미지 요청</div>
+              <div class="ox-group" id="ox-checkMenuImage" data-path="checklist.checkMenuImage">
+                <button class="ox-btn O" data-val="O">O</button>
+                <button class="ox-btn X" data-val="X">X</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-section">
+            <div class="section-title">알림판 / 메뉴판</div>
+            <div class="checklist-row">
+              <div class="checklist-label">알림판 Ver 확인</div>
+              <div class="ox-group" id="ox-checkNoticeBoardVer" data-path="checklist.checkNoticeBoardVer">
+                <button class="ox-btn O" data-val="O">O</button>
+                <button class="ox-btn X" data-val="X">X</button>
+              </div>
+            </div>
+            <div class="checklist-row">
+              <div class="checklist-label">알림판 어드민 확인</div>
+              <div class="ox-group" id="ox-checkNoticeBoardAdmin" data-path="checklist.checkNoticeBoardAdmin">
+                <button class="ox-btn O" data-val="O">O</button>
+                <button class="ox-btn X" data-val="X">X</button>
+              </div>
+            </div>
+            <div class="checklist-row">
+              <div class="checklist-label">메뉴판 Ver 확인</div>
+              <div class="ox-group" id="ox-checkMenuBoardVer" data-path="checklist.checkMenuBoardVer">
+                <button class="ox-btn O" data-val="O">O</button>
+                <button class="ox-btn X" data-val="X">X</button>
+              </div>
+            </div>
+            <div class="checklist-row">
+              <div class="checklist-label">매니저 자동 실행 확인</div>
+              <div class="ox-group" id="ox-checkMenuBoardAutoRun" data-path="checklist.checkMenuBoardAutoRun">
+                <button class="ox-btn O" data-val="O">O</button>
+                <button class="ox-btn X" data-val="X">X</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-section">
+            <div class="section-title">쿠폰</div>
+            <div class="checklist-row">
+              <div class="checklist-label">쿠폰 생성 확인</div>
+              <div class="ox-group" id="ox-checkCoupon" data-path="checklist.checkCoupon">
+                <button class="ox-btn O" data-val="O">O</button>
+                <button class="ox-btn X" data-val="X">X</button>
+              </div>
+            </div>
+            <div class="fg" id="couponReasonWrap" style="margin-top:10px;display:none">
+              <label>쿠폰 미생성 사유</label>
+              <input class="fi" type="text" id="f-couponXReason" placeholder="사유 입력" data-path="finish.couponXReason">
+            </div>
+          </div>
+        </div>
+
+        <!-- ══ TAB 4: 완료 ══ -->
+        <div class="tab-page" id="page4">
+
+          <div class="form-section">
+            <div class="section-title">원격 교육</div>
+            <div class="fg">
+              <label>원격 교육 연락처</label>
+              <div class="fi-phone">
+                <input class="fi" type="text" id="f-remoteEduContact" placeholder="010-0000-0000" data-path="finish.remoteEduContact">
+                <button class="btn-call" onclick="App.callPhone('f-remoteEduContact')">📞 전화</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-section">
+            <div class="section-title">설치 이슈</div>
+            <div class="fg">
+              <label>이슈 내용</label>
+              <textarea class="fi" id="f-installIssue" placeholder="설치 중 발생한 이슈 입력..." data-path="finish.installIssue" style="min-height:100px"></textarea>
+            </div>
+          </div>
+
+          <div class="form-section">
+            <div class="section-title">첨부 파일</div>
+            <div class="btn-row">
+              <button class="btn-secondary" id="btnSelectFiles">📎 파일 선택</button>
+            </div>
+            <div class="attach-list" id="attachList"></div>
+          </div>
+
+          <div class="form-section">
+            <div class="section-title">다우오피스 자동 등록</div>
+            <div class="btn-row">
+              <button class="btn-primary" id="btnRegister">🤖 자동 등록 시작</button>
+            </div>
+            <div class="reg-log" id="regLog"></div>
+          </div>
+        </div>
+
+      </div><!-- end tab-body -->
+    </div><!-- end session-view -->
+  </div><!-- end main -->
+
+</div><!-- end app -->
+
+<div id="toast" class="toast"></div>
+
+<script src="js/bridge.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

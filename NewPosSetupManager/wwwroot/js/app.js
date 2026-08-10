@@ -1,0 +1,749 @@
+/* POS Setup Manager — main app */
+(function () {
+'use strict';
+
+// ── State ──────────────────────────────────────────
+const S = {
+  sessions: { active: [], completed: [] },
+  currentId: null,
+  tab: 0,
+  saveTimer: null,
+  showCompleted: false,
+  search: '',
+  dragging: null,
+};
+
+// ── Helpers ────────────────────────────────────────
+function $(id) { return document.getElementById(id); }
+function el(tag, cls, txt) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (txt !== undefined) e.textContent = txt;
+  return e;
+}
+function show(id) { const e = $(id); if (e) e.classList.remove('hidden'); }
+function hide(id) { const e = $(id); if (e) e.classList.add('hidden'); }
+
+let toastTimer;
+function toast(msg, type) {
+  const t = $('toast');
+  t.textContent = msg;
+  t.className = 'toast show' + (type ? ' ' + type : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+function fmtDate(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d)) return '';
+  return (d.getMonth() + 1) + '/' + d.getDate();
+}
+
+function fmtDateFull(iso) {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d)) return '';
+  return d.getFullYear() + '년 ' + (d.getMonth() + 1) + '월 ' + d.getDate() + '일';
+}
+
+function getPath(obj, path) {
+  return path.split('.').reduce((o, k) => (o ? o[k] : undefined), obj);
+}
+function setPath(obj, path, val) {
+  const keys = path.split('.');
+  let cur = obj;
+  for (let i = 0; i < keys.length - 1; i++) {
+    if (!cur[keys[i]]) cur[keys[i]] = {};
+    cur = cur[keys[i]];
+  }
+  cur[keys[keys.length - 1]] = val;
+}
+
+function currentSession() {
+  if (!S.currentId) return null;
+  return S.sessions.active.find(s => s.id === S.currentId)
+      || S.sessions.completed.find(s => s.id === S.currentId);
+}
+
+// ── Time options ───────────────────────────────────
+function buildTimeOptions(sel) {
+  const cur = sel.value;
+  sel.innerHTML = '<option value="">선택</option>';
+  for (let h = 8; h <= 20; h++) {
+    const t1 = pad(h) + ':00';
+    const t2 = pad(h) + ':30';
+    sel.appendChild(new Option(t1, t1));
+    if (h < 20) sel.appendChild(new Option(t2, t2));
+  }
+  if (cur) sel.value = cur;
+}
+function pad(n) { return n < 10 ? '0' + n : '' + n; }
+
+// ── Progress calculation ───────────────────────────
+function calcProgress(session) {
+  if (!session) return { pct: 0, dots: [false, false, false, false, false] };
+  const d = session.data;
+  const dots = [
+    !!(d.basic.storeName && d.basic.startTime && d.basic.endTime),
+    !!(d.pos.remoteAccount && d.pos.remoteAdmin && d.pos.lmmAccount
+        && d.pos.posTypes && d.pos.posTypes.length >= 2 && d.pos.tableMode),
+    !!(d.checklist.checkDHCP && d.checklist.checkExternalIP),
+    !!(d.checklist.checkFirewall && d.checklist.checkHiorderLogin && d.checklist.checkCoupon),
+    session.status === '완료',
+  ];
+  const done = dots.filter(Boolean).length;
+  return { pct: Math.round(done / 5 * 100), dots };
+}
+
+function calcElapsed(start, end) {
+  if (!start || !end) return '';
+  try {
+    const [sh, sm] = start.split(':').map(Number);
+    const [eh, em] = end.split(':').map(Number);
+    let mins = (eh * 60 + em) - (sh * 60 + sm);
+    if (mins < 0) mins += 24 * 60;
+    return mins + '분';
+  } catch { return ''; }
+}
+
+// ── Sidebar rendering ──────────────────────────────
+function renderSidebar() {
+  const q = S.search.toLowerCase();
+  const active = S.sessions.active.filter(s =>
+    !q || (s.data.basic.storeName || '').toLowerCase().includes(q)
+  );
+  const completed = S.sessions.completed.filter(s =>
+    !q || (s.data.basic.storeName || '').toLowerCase().includes(q)
+  );
+
+  $('activeCount').textContent = S.sessions.active.length;
+  $('completedCount').textContent = S.sessions.completed.length;
+
+  renderList($('activeList'), active, true);
+  renderList($('completedList'), completed, false);
+}
+
+function renderList(container, sessions, isDraggable) {
+  container.innerHTML = '';
+  if (sessions.length === 0) {
+    const empty = el('div', null, isDraggable ? '매장이 없습니다' : '');
+    empty.style.cssText = 'color:rgba(220,225,235,.3);font-size:12px;padding:8px 12px;text-align:center';
+    container.appendChild(empty);
+    return;
+  }
+  sessions.forEach(s => container.appendChild(makeCard(s, isDraggable)));
+}
+
+function makeCard(session, isDraggable) {
+  const div = el('div', 'store-card');
+  div.dataset.id = session.id;
+  if (session.id === S.currentId) div.classList.add('active');
+  if (isDraggable) {
+    div.draggable = true;
+    div.addEventListener('dragstart', onDragStart);
+    div.addEventListener('dragover', onDragOver);
+    div.addEventListener('drop', onDrop);
+    div.addEventListener('dragend', onDragEnd);
+  }
+
+  const { pct } = calcProgress(session);
+  const name = session.data.basic.storeName || '새 매장';
+  const date = fmtDate(session.data.basic.installDate);
+  const isActive = session.status === '작성중';
+
+  const statusCls = session.status === '완료' ? 'done' : isActive ? 'active' : 'idle';
+  const statusTxt = session.status || '대기';
+
+  div.innerHTML = `
+    <div class="card-name">${escHtml(name)}</div>
+    <div class="card-meta">
+      <span class="card-status ${statusCls}">${escHtml(statusTxt)}</span>
+      ${date ? `<span class="card-date">${date}</span>` : ''}
+    </div>
+    <div class="card-prog"><div class="card-prog-fill" style="width:${pct}%"></div></div>
+  `;
+  div.addEventListener('click', () => selectSession(session.id));
+  return div;
+}
+
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Drag & drop ────────────────────────────────────
+function onDragStart(e) {
+  S.dragging = this.dataset.id;
+  this.classList.add('dragging');
+  e.dataTransfer.effectAllowed = 'move';
+}
+function onDragOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  document.querySelectorAll('.store-card.drag-over').forEach(c => c.classList.remove('drag-over'));
+  this.classList.add('drag-over');
+}
+function onDrop(e) {
+  e.preventDefault();
+  const targetId = this.dataset.id;
+  if (!S.dragging || S.dragging === targetId) return;
+  const arr = S.sessions.active;
+  const fi = arr.findIndex(s => s.id === S.dragging);
+  const ti = arr.findIndex(s => s.id === targetId);
+  if (fi < 0 || ti < 0) return;
+  arr.splice(ti, 0, arr.splice(fi, 1)[0]);
+  Bridge.send('reorderSessions', { ids: arr.map(s => s.id) });
+  renderSidebar();
+}
+function onDragEnd() {
+  document.querySelectorAll('.store-card.dragging,.store-card.drag-over')
+    .forEach(c => c.classList.remove('dragging','drag-over'));
+  S.dragging = null;
+}
+
+// ── Session selection ──────────────────────────────
+function selectSession(id) {
+  S.currentId = id;
+  renderSidebar();
+  const session = currentSession();
+  if (!session) return;
+  show('sessionView');
+  hide('emptyState');
+  loadForm(session);
+  updateHeader(session);
+  updateProgress(session);
+}
+
+function updateHeader(session) {
+  if (!session) return;
+  const name = session.data.basic.storeName || '새 매장';
+  $('sTitle').textContent = name;
+  const date = fmtDateFull(session.data.basic.installDate);
+  $('sDate').textContent = date;
+
+  const badge = $('sBadge');
+  badge.className = 's-badge';
+  if (session.status === '완료') { badge.textContent = '완료'; badge.classList.add('done'); }
+  else if (session.status === '작성중') { badge.textContent = '진행중'; badge.classList.add('active'); }
+  else { badge.textContent = '대기'; badge.classList.add('idle'); }
+
+  const isCompleted = session.status === '완료';
+  $('btnComplete').style.display = isCompleted ? 'none' : '';
+  $('btnRestore').style.display = isCompleted ? '' : 'none';
+}
+
+function updateProgress(session) {
+  const { pct, dots } = calcProgress(session);
+  $('progFill').style.width = pct + '%';
+  $('progText').textContent = pct + '%';
+  dots.forEach((done, i) => {
+    const dot = $('dot' + i);
+    if (dot) { if (done) dot.classList.remove('hidden'); else dot.classList.add('hidden'); }
+  });
+}
+
+// ── Form load ──────────────────────────────────────
+let _loading = false;
+
+function loadForm(session) {
+  _loading = true;
+  const d = session.data;
+
+  // Text/select inputs by data-path
+  document.querySelectorAll('[data-path]').forEach(el => {
+    if (el.tagName === 'INPUT' || el.tagName === 'SELECT' || el.tagName === 'TEXTAREA') {
+      const p = el.dataset.path;
+      const val = getPath(d, p);
+      if (el.type === 'date') {
+        el.value = val ? (typeof val === 'string' ? val.split('T')[0] : '') : '';
+      } else {
+        el.value = val || '';
+      }
+    }
+  });
+
+  // Radio groups
+  document.querySelectorAll('[id^="rg-"]').forEach(rg => {
+    const p = rg.dataset.path;
+    const val = getPath(d, p) || '';
+    rg.querySelectorAll('.radio-option').forEach(opt => {
+      opt.classList.toggle('sel', opt.dataset.val === val);
+    });
+  });
+
+  // OX groups
+  document.querySelectorAll('[id^="ox-"]').forEach(og => {
+    const p = og.dataset.path;
+    const val = getPath(d, p) || '';
+    og.querySelectorAll('.ox-btn').forEach(btn => {
+      btn.classList.toggle('sel', btn.dataset.val === val);
+    });
+  });
+
+  // Tag groups (pos types)
+  const posTypes = d.pos.posTypes || [];
+  document.querySelectorAll('[id^="tg-"]').forEach(tg => {
+    tg.querySelectorAll('.tag').forEach(tag => {
+      tag.classList.toggle('sel', posTypes.includes(tag.dataset.val));
+    });
+  });
+
+  // Checkboxes
+  const chkMenuBoard = $('chk-localModeMenuBoard');
+  const chkNoticeBoard = $('chk-localModeNoticeBoard');
+  if (chkMenuBoard) chkMenuBoard.checked = !!d.checklist.localModeMenuBoard;
+  if (chkNoticeBoard) chkNoticeBoard.checked = !!d.checklist.localModeNoticeBoard;
+
+  // WiFi status
+  const wifiRg = $('rg-wifiStatus');
+  if (wifiRg) {
+    const wv = d.checklist.wifiStatus || '';
+    wifiRg.querySelectorAll('.wifi-opt').forEach(o => o.classList.toggle('sel', o.dataset.val === wv));
+  }
+
+  // Attachment list
+  renderAttachments(d.basic.attachmentPaths || []);
+
+  // Coupon reason visibility
+  toggleCouponReason(d.checklist.checkCoupon, false);
+
+  // Prepaid section visibility
+  togglePrepaid(d.basic.tableMode || d.pos.tableMode);
+
+  // tableMode sync (tab0 and tab1 are synced)
+  syncTableMode(d.basic.tableMode || d.pos.tableMode);
+
+  _loading = false;
+}
+
+function syncTableMode(val) {
+  ['rg-tableMode','rg-tableMode2'].forEach(id => {
+    const rg = $(id);
+    if (!rg) return;
+    rg.querySelectorAll('.radio-option').forEach(opt => {
+      opt.classList.toggle('sel', opt.dataset.val === val);
+    });
+  });
+}
+
+function toggleCouponReason(couponVal, animate) {
+  const wrap = $('couponReasonWrap');
+  if (!wrap) return;
+  wrap.style.display = couponVal === 'X' ? '' : 'none';
+}
+
+function togglePrepaid(tableMode) {
+  const sec = $('prepaidSection');
+  if (!sec) return;
+  sec.style.display = tableMode === '선불' ? '' : 'none';
+}
+
+function renderAttachments(paths) {
+  const list = $('attachList');
+  if (!list) return;
+  list.innerHTML = '';
+  (paths || []).forEach((p, i) => {
+    const item = el('div', 'attach-item');
+    const name = p.split('\\').pop().split('/').pop();
+    item.innerHTML = `<span>📎 ${escHtml(name)}</span>`;
+    const rm = el('button', 'remove-attach', '×');
+    rm.title = '제거';
+    rm.addEventListener('click', () => removeAttachment(i));
+    item.appendChild(rm);
+    list.appendChild(item);
+  });
+}
+
+function removeAttachment(index) {
+  const session = currentSession();
+  if (!session) return;
+  const paths = session.data.basic.attachmentPaths || [];
+  paths.splice(index, 1);
+  session.data.basic.attachmentPaths = paths;
+  renderAttachments(paths);
+  scheduleSave();
+}
+
+// ── Form change handling ───────────────────────────
+function onFormChange(e) {
+  if (_loading) return;
+  const session = currentSession();
+  if (!session) return;
+  const el = e.target;
+  const p = el.dataset.path;
+  if (!p) return;
+
+  const d = session.data;
+  if (el.type === 'checkbox') {
+    setPath(d, p, el.checked);
+  } else {
+    setPath(d, p, el.value);
+  }
+
+  // Side effects
+  if (p === 'basic.storeName') {
+    $('sTitle').textContent = el.value || '새 매장';
+    renderSidebar();
+  }
+  if (p === 'basic.installDate') {
+    $('sDate').textContent = fmtDateFull(el.value);
+    renderSidebar();
+  }
+  if (p === 'basic.startTime' || p === 'basic.endTime') {
+    const elapsed = calcElapsed(d.basic.startTime, d.basic.endTime);
+    d.basic.elapsedTime = elapsed;
+    const ef = $('f-elapsedTime');
+    if (ef) ef.value = elapsed;
+  }
+  if (p === 'finish.couponXReason') { /* no special handling */ }
+
+  updateProgress(session);
+  scheduleSave();
+}
+
+document.addEventListener('change', onFormChange);
+document.addEventListener('input', e => {
+  if (_loading) return;
+  const el = e.target;
+  if (el.tagName !== 'INPUT' && el.tagName !== 'TEXTAREA') return;
+  const p = el.dataset.path;
+  if (!p) return;
+  const session = currentSession();
+  if (!session) return;
+  setPath(session.data, p, el.value);
+  if (p === 'basic.storeName') {
+    $('sTitle').textContent = el.value || '새 매장';
+  }
+  updateProgress(session);
+  scheduleSave();
+});
+
+// OX buttons
+document.querySelectorAll('.ox-group').forEach(og => {
+  og.querySelectorAll('.ox-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (_loading) return;
+      const session = currentSession();
+      if (!session) return;
+      const p = og.dataset.path;
+      const val = btn.dataset.val;
+      const cur = getPath(session.data, p);
+      const newVal = cur === val ? '' : val; // toggle off
+      setPath(session.data, p, newVal);
+      og.querySelectorAll('.ox-btn').forEach(b => b.classList.toggle('sel', b.dataset.val === newVal));
+
+      if (p === 'checklist.checkCoupon') toggleCouponReason(newVal, true);
+      updateProgress(session);
+      scheduleSave();
+    });
+  });
+});
+
+// Radio options
+document.querySelectorAll('.radio-row').forEach(rg => {
+  rg.querySelectorAll('.radio-option').forEach(opt => {
+    opt.addEventListener('click', () => {
+      if (_loading) return;
+      const session = currentSession();
+      if (!session) return;
+      const p = rg.dataset.path;
+      const val = opt.dataset.val;
+      setPath(session.data, p, val);
+      rg.querySelectorAll('.radio-option').forEach(o => o.classList.toggle('sel', o.dataset.val === val));
+
+      // Sync tableMode between tab0 and tab1
+      if (p === 'basic.tableMode' || p === 'pos.tableMode') {
+        session.data.basic.tableMode = val;
+        session.data.pos.tableMode = val;
+        syncTableMode(val);
+        togglePrepaid(val);
+      }
+      updateProgress(session);
+      scheduleSave();
+    });
+  });
+});
+
+// WiFi status
+const wifiRg = $('rg-wifiStatus');
+if (wifiRg) {
+  wifiRg.querySelectorAll('.wifi-opt').forEach(opt => {
+    opt.addEventListener('click', () => {
+      if (_loading) return;
+      const session = currentSession();
+      if (!session) return;
+      const val = opt.dataset.val;
+      const cur = session.data.checklist.wifiStatus;
+      const newVal = cur === val ? '' : val;
+      session.data.checklist.wifiStatus = newVal;
+      wifiRg.querySelectorAll('.wifi-opt').forEach(o => o.classList.toggle('sel', o.dataset.val === newVal));
+      updateProgress(session);
+      scheduleSave();
+    });
+  });
+}
+
+// Tag grid (POS types)
+document.querySelectorAll('.tag-grid').forEach(tg => {
+  tg.querySelectorAll('.tag').forEach(tag => {
+    tag.addEventListener('click', () => {
+      if (_loading) return;
+      const session = currentSession();
+      if (!session) return;
+      const val = tag.dataset.val;
+      const arr = session.data.pos.posTypes || [];
+      const idx = arr.indexOf(val);
+      if (idx >= 0) arr.splice(idx, 1); else arr.push(val);
+      session.data.pos.posTypes = arr;
+      tag.classList.toggle('sel', arr.includes(val));
+      updateProgress(session);
+      scheduleSave();
+    });
+  });
+});
+
+// Checkbox: localMode
+[$('chk-localModeMenuBoard'), $('chk-localModeNoticeBoard')].forEach(el => {
+  if (!el) return;
+  el.addEventListener('change', () => {
+    if (_loading) return;
+    const session = currentSession();
+    if (!session) return;
+    if (el.id === 'chk-localModeMenuBoard') session.data.checklist.localModeMenuBoard = el.checked;
+    if (el.id === 'chk-localModeNoticeBoard') session.data.checklist.localModeNoticeBoard = el.checked;
+    scheduleSave();
+  });
+});
+
+// ── Auto save ──────────────────────────────────────
+function scheduleSave() {
+  clearTimeout(S.saveTimer);
+  S.saveTimer = setTimeout(doSave, 600);
+}
+
+function doSave() {
+  const session = currentSession();
+  if (!session) return;
+  Bridge.send('saveSession', { sessionId: session.id, data: session.data });
+}
+
+// ── Tab switching ──────────────────────────────────
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const t = parseInt(btn.dataset.tab);
+    S.tab = t;
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b === btn));
+    document.querySelectorAll('.tab-page').forEach((p, i) => p.classList.toggle('active', i === t));
+  });
+});
+
+// ── Sidebar controls ───────────────────────────────
+$('btnNew').addEventListener('click', () => App.addSession());
+$('btnCalendar').addEventListener('click', () => Bridge.send('openCalendar'));
+$('btnSettings').addEventListener('click', () => Bridge.send('openSettings'));
+$('searchInput').addEventListener('input', e => {
+  S.search = e.target.value;
+  renderSidebar();
+});
+
+$('toggleCompleted').addEventListener('click', () => {
+  S.showCompleted = !S.showCompleted;
+  const list = $('completedList');
+  const actions = $('completedActions');
+  const arrow = $('toggleArrow');
+  list.classList.toggle('hidden', !S.showCompleted);
+  actions.classList.toggle('hidden', !S.showCompleted);
+  arrow.classList.toggle('open', S.showCompleted);
+});
+
+$('btnDeleteBatch').addEventListener('click', () => {
+  if (!S.sessions.completed.length) return;
+  if (!confirm('완료된 매장 목록을 전체 삭제하시겠습니까?\n(복구할 수 없습니다)')) return;
+  Bridge.send('deleteBatch', { ids: S.sessions.completed.map(s => s.id) });
+});
+
+// ── Header buttons ─────────────────────────────────
+$('btnComplete').addEventListener('click', () => {
+  const session = currentSession();
+  if (!session) return;
+  if (!confirm('작업을 완료로 표시하시겠습니까?')) return;
+  Bridge.send('completeSession', { sessionId: session.id });
+});
+
+$('btnRestore').addEventListener('click', () => {
+  const session = currentSession();
+  if (!session) return;
+  Bridge.send('restoreSession', { sessionId: session.id });
+});
+
+$('btnDelete').addEventListener('click', () => {
+  const session = currentSession();
+  if (!session) return;
+  const name = session.data.basic.storeName || '새 매장';
+  if (!confirm(`"${name}" 매장을 삭제하시겠습니까?`)) return;
+  Bridge.send('deleteSession', { sessionId: session.id });
+});
+
+// ── Finish tab actions ─────────────────────────────
+$('btnStartWork').addEventListener('click', () => {
+  const now = new Date();
+  const t = pad(now.getHours()) + ':' + pad(now.getMinutes());
+  const sel = $('f-startTime');
+  if (sel) { sel.value = t; sel.dispatchEvent(new Event('change')); }
+  const session = currentSession();
+  if (session) {
+    session.data.basic.startTime = t;
+    updateProgress(session);
+    scheduleSave();
+  }
+  toast('작업 시작 시간: ' + t);
+});
+
+$('btnFinishWork').addEventListener('click', () => {
+  const now = new Date();
+  const t = pad(now.getHours()) + ':' + pad(now.getMinutes());
+  const sel = $('f-endTime');
+  if (sel) { sel.value = t; sel.dispatchEvent(new Event('change')); }
+  const session = currentSession();
+  if (session) {
+    session.data.basic.endTime = t;
+    const elapsed = calcElapsed(session.data.basic.startTime, t);
+    session.data.basic.elapsedTime = elapsed;
+    const ef = $('f-elapsedTime');
+    if (ef) ef.value = elapsed;
+    updateProgress(session);
+    scheduleSave();
+  }
+  toast('작업 종료 시간: ' + t);
+});
+
+$('btnSendSms').addEventListener('click', () => {
+  const session = currentSession();
+  if (!session) return;
+  const msg = session.data.finish.smsMessage || '';
+  const phone = session.data.basic.engineerContact || '';
+  if (!msg) { toast('문자 내용을 입력해주세요', 'warn'); return; }
+  Bridge.send('sendSms', { phone, message: msg });
+});
+
+$('btnSelectFiles').addEventListener('click', () => Bridge.send('selectFiles'));
+
+$('btnRegister').addEventListener('click', () => {
+  const session = currentSession();
+  if (!session) return;
+  const log = $('regLog');
+  log.textContent = '';
+  log.classList.add('visible');
+  $('btnRegister').disabled = true;
+  Bridge.send('startRegistration', { sessionId: session.id });
+});
+
+// ── Bridge listeners ───────────────────────────────
+Bridge.on('sessions', msg => {
+  S.sessions = { active: msg.active || [], completed: msg.completed || [] };
+  renderSidebar();
+  if (S.currentId) {
+    const session = currentSession();
+    if (session) { updateHeader(session); updateProgress(session); }
+    else { S.currentId = null; hide('sessionView'); show('emptyState'); }
+  }
+});
+
+Bridge.on('sessionAdded', msg => {
+  S.sessions.active.push(msg.session);
+  renderSidebar();
+  selectSession(msg.session.id);
+});
+
+Bridge.on('sessionSaved', () => {
+  // silent save OK
+});
+
+Bridge.on('sessionDeleted', msg => {
+  S.sessions.active = S.sessions.active.filter(s => s.id !== msg.id);
+  S.sessions.completed = S.sessions.completed.filter(s => s.id !== msg.id);
+  if (S.currentId === msg.id) {
+    S.currentId = null;
+    hide('sessionView');
+    show('emptyState');
+  }
+  renderSidebar();
+  toast('삭제되었습니다');
+});
+
+Bridge.on('sessionCompleted', msg => {
+  const session = S.sessions.active.find(s => s.id === msg.id);
+  if (session) {
+    session.status = '완료';
+    S.sessions.active = S.sessions.active.filter(s => s.id !== msg.id);
+    S.sessions.completed.unshift(session);
+  }
+  renderSidebar();
+  if (S.currentId === msg.id) updateHeader(currentSession());
+  toast('완료 처리되었습니다', 'success');
+});
+
+Bridge.on('sessionRestored', msg => {
+  const session = S.sessions.completed.find(s => s.id === msg.id);
+  if (session) {
+    session.status = '작성중';
+    S.sessions.completed = S.sessions.completed.filter(s => s.id !== msg.id);
+    S.sessions.active.push(session);
+  }
+  renderSidebar();
+  if (S.currentId === msg.id) updateHeader(currentSession());
+  toast('복원되었습니다');
+});
+
+Bridge.on('sessionsReordered', () => {
+  // already updated locally
+});
+
+Bridge.on('filesSelected', msg => {
+  const session = currentSession();
+  if (!session) return;
+  const paths = session.data.basic.attachmentPaths || [];
+  (msg.paths || []).forEach(p => { if (!paths.includes(p)) paths.push(p); });
+  session.data.basic.attachmentPaths = paths;
+  renderAttachments(paths);
+  scheduleSave();
+  toast(msg.paths.length + '개 파일 추가됨');
+});
+
+Bridge.on('registrationProgress', msg => {
+  const log = $('regLog');
+  if (log) { log.textContent += msg.message + '\n'; log.scrollTop = log.scrollHeight; }
+});
+
+Bridge.on('registrationResult', msg => {
+  $('btnRegister').disabled = false;
+  if (msg.success) toast('자동 등록 완료!', 'success');
+  else toast('등록 실패: ' + (msg.message || '알 수 없는 오류'), 'error');
+  const log = $('regLog');
+  if (log) { log.textContent += (msg.success ? '\n✔ 완료' : '\n✖ 실패: ' + msg.message) + '\n'; log.scrollTop = log.scrollHeight; }
+});
+
+Bridge.on('error', msg => toast(msg.message, 'error'));
+
+// ── Public API ─────────────────────────────────────
+window.App = {
+  addSession() { Bridge.send('addSession'); },
+  callPhone(inputId) {
+    const inp = $(inputId);
+    if (!inp || !inp.value) { toast('번호를 입력해주세요', 'warn'); return; }
+    Bridge.send('callPhone', { number: inp.value });
+  },
+};
+
+// ── Init ───────────────────────────────────────────
+(function init() {
+  // Build time selects
+  ['f-installTime','f-startTime','f-endTime','f-linkEndTime'].forEach(id => {
+    const el = $(id); if (el) buildTimeOptions(el);
+  });
+
+  Bridge.on('sessions', () => {}); // ensure registered before send
+  Bridge.send('getSessions');
+})();
+
+})();
