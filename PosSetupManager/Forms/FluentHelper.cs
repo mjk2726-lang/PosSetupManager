@@ -335,7 +335,7 @@ namespace PosSetupManager.Forms
         private bool _focused = false;
         private static readonly Color BorderNormal = Color.FromArgb(217, 217, 217);
         private static readonly Color BorderFocus = Color.FromArgb(0, 120, 212);
-        private const int Radius = 10;
+        private const int Radius = 8;
 
         public new string Text
         {
@@ -426,7 +426,7 @@ namespace PosSetupManager.Forms
         private bool _focused = false;
         private static readonly Color BorderNormal = Color.FromArgb(217, 217, 217);
         private static readonly Color BorderFocus = Color.FromArgb(0, 120, 212);
-        private const int Radius = 10;
+        private const int Radius = 8;
 
         public object SelectedItem
         {
@@ -515,7 +515,7 @@ namespace PosSetupManager.Forms
         private bool _focused = false;
         private static readonly Color BorderNormal = Color.FromArgb(217, 217, 217);
         private static readonly Color BorderFocus = Color.FromArgb(0, 120, 212);
-        private const int Radius = 10;
+        private const int Radius = 8;
 
         public DateTime Value
         {

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Drawing2D;
+using System.Linq;
 using System.Windows.Forms;
 using PosSetupManager.Models;
 using PosSetupManager.Services;
@@ -59,7 +60,7 @@ namespace PosSetupManager.Forms
         private RadioButton rbTablePost, rbTablePre, rbTableNone;
 
         // 공유기/네트워크 (기존 + 체크리스트에서 이동)
-        private RoundTextBox txtRouterKT, txtRouterLG, txtRouterSK, txtRouterIpTime, txtRouterEtc;
+        private RoundComboBox txtRouterKT, txtRouterLG, txtRouterSK, txtRouterIpTime, txtRouterEtc;
         private RoundTextBox txtWifiAccount, txtMainPosIP;
         private OxRadio oxExternalIP, oxDHCP;
         private CheckBox chkLocalMenuBoard, chkLocalNoticeBoard;
@@ -91,7 +92,7 @@ namespace PosSetupManager.Forms
         private System.Windows.Forms.Timer _autoSaveTimer;
 
         // ── 색상 (Win11 Fluent) ──
-        static readonly Color BG = Color.FromArgb(243, 243, 243);
+        static readonly Color BG = Color.FromArgb(245, 247, 250);
         static readonly Color SURFACE = Color.White;
         static readonly Color ACCENT = Color.FromArgb(0, 120, 212);
         static readonly Color ACCENT_L = Color.FromArgb(235, 246, 255);
@@ -110,6 +111,7 @@ namespace PosSetupManager.Forms
             _workspace = new WorkspaceManager();
             InitializeComponent();
             RefreshStoreList();
+            ApplyRouterAutocomplete();
             _autoSaveTimer = new System.Windows.Forms.Timer { Interval = 10000 };
             _autoSaveTimer.Tick += (s, e) => AutoSave();
             _autoSaveTimer.Start();
@@ -162,7 +164,7 @@ namespace PosSetupManager.Forms
             btnCalendar = new FluentButton { Text = "📅  캘린더에서 가져오기", Dock = DockStyle.Top, Height = 38 };
             btnCalendar.Click += BtnCalendar_Click;
             var btnSet = new FluentButton { Text = "⚙  설정", Dock = DockStyle.Bottom, Height = 36 };
-            btnSet.Click += (s, e) => { new SettingsDialog().ShowDialog(this); };
+            btnSet.Click += (s, e) => { new SettingsDialog().ShowDialog(this); ApplyRouterAutocomplete(); };
             bot.Controls.Add(btnSet);
             bot.Controls.Add(btnCalendar);
             bot.Controls.Add(btnNewStore);
@@ -267,7 +269,7 @@ namespace PosSetupManager.Forms
 
             lblCDate = MakeChip("설치예정일");
             lblCManager = MakeChip("원격담당자");
-            lblCElapsed = MakeChip("소요시간");
+            lblCElapsed = MakeChip("소요시간"); // 헤더에 표시 안 함, 데이터 유지용
 
             btnSave = new FluentButton { Text = "💾  저장", IsPrimary = true, Width = 90, Height = 46, Font = new Font("Segoe UI", 9.5f, FontStyle.Bold) };
             btnSave.Click += (s, e) =>
@@ -279,14 +281,13 @@ namespace PosSetupManager.Forms
                 t.Start();
             };
 
-            pnlHeaderCard.Controls.AddRange(new Control[] { lblHName, lblHStatus, hBar, lblHPct, lblCDate, lblCManager, lblCElapsed, btnSave });
+            pnlHeaderCard.Controls.AddRange(new Control[] { lblHName, lblHStatus, hBar, lblHPct, lblCDate, lblCManager, btnSave });
 
             pnlHeaderCard.Resize += (s, e) =>
             {
                 int w = pnlHeaderCard.Width;
                 btnSave.Location = new Point(w - btnSave.Width - 16, 27);
-                lblCElapsed.Location = new Point(btnSave.Left - lblCElapsed.Width - 10, 18);
-                lblCManager.Location = new Point(lblCElapsed.Left - lblCManager.Width - 10, 18);
+                lblCManager.Location = new Point(btnSave.Left - lblCManager.Width - 10, 18);
                 lblCDate.Location = new Point(lblCManager.Left - lblCDate.Width - 10, 18);
             };
         }
@@ -309,20 +310,15 @@ namespace PosSetupManager.Forms
                 using (var path = RR(r, 8))
                 {
                     e.Graphics.FillPath(new SolidBrush(SURFACE), path);
-                    // 상단 악센트 (둥근 모서리 클립)
-                    var savedClip = e.Graphics.Clip;
-                    e.Graphics.SetClip(path);
-                    e.Graphics.FillRectangle(new SolidBrush(ACCENT), new Rectangle(0, 0, lbl.Width, 3));
-                    e.Graphics.Clip = savedClip;
-                    e.Graphics.DrawPath(new Pen(BORDER), path);
+                    e.Graphics.DrawPath(new Pen(Color.FromArgb(220, 224, 232)), path);
                 }
                 var parts = lbl.Text.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
                 string chipTitle = parts.Length > 0 ? parts[0] : title;
                 string chipVal = parts.Length > 1 ? parts[1] : "-";
                 TextRenderer.DrawText(e.Graphics, chipTitle, new Font("Segoe UI", 7.5f),
-                    new Rectangle(4, 10, lbl.Width - 8, 15), TXT_M, TextFormatFlags.HorizontalCenter);
-                TextRenderer.DrawText(e.Graphics, chipVal, new Font("Segoe UI", 9.5f, FontStyle.Bold),
-                    new Rectangle(4, 28, lbl.Width - 8, 22), TXT,
+                    new Rectangle(4, 8, lbl.Width - 8, 16), TXT_S, TextFormatFlags.HorizontalCenter);
+                TextRenderer.DrawText(e.Graphics, chipVal, new Font("Segoe UI", 10f, FontStyle.Bold),
+                    new Rectangle(4, 26, lbl.Width - 8, 24), TXT,
                     TextFormatFlags.HorizontalCenter | TextFormatFlags.EndEllipsis);
             };
             return lbl;
@@ -531,16 +527,17 @@ namespace PosSetupManager.Forms
 
             txtStoreName = AddRTB(card, 0, cy, 204);
             txtStoreName.TextChanged += (s, e) => { AutoSave(); RefreshStoreList(); };
-            dtpInstallDate = new RoundDateTimePicker { Location = new Point(220, cy), Width = 220, Height = 42, Format = DateTimePickerFormat.Short };
+            dtpInstallDate = new RoundDateTimePicker { Location = new Point(220, cy), Width = 220, Height = 36, Format = DateTimePickerFormat.Short };
             dtpInstallDate.Inner.Value = DateTime.Today;
             card.Controls.Add(dtpInstallDate);
-            txtInstallTime = AddTimeCombo(card, 450, cy, 150); cy += 60;
+            txtInstallTime = AddTimeCombo(card, 450, cy, 150); cy += 54;
 
             // 행2: 원격담당자 / 엔지니어 연락처
             AddFL(card, "원격 담당자", 0, cy); AddFL(card, "엔지니어 연락처", 216, cy); cy += 26;
             txtRemoteManager = AddRTB(card, 0, cy, 204);
             txtEngineerContact = AddRTB(card, 216, cy, 180);
-            var btnCall = new FluentButton { Text = "📞", Location = new Point(404, cy), Width = 42, Height = 42, Font = new Font("Segoe UI", 12f) };
+            AttachPhoneFormatter(txtEngineerContact);
+            var btnCall = new FluentButton { Text = "📞", Location = new Point(404, cy), Width = 36, Height = 36, Font = new Font("Segoe UI", 12f) };
             btnCall.Click += (s, e) =>
             {
                 var number = txtEngineerContact.Text.Trim();
@@ -549,7 +546,7 @@ namespace PosSetupManager.Forms
                 catch { MessageBox.Show("휴대폰과 연결 앱을 확인해주세요.", "전화 연결 실패", MessageBoxButtons.OK, MessageBoxIcon.Warning); }
             };
             card.Controls.Add(btnCall);
-            cy += 60;
+            cy += 54;
 
             AddDivider(card, cy); cy += 28;
 
@@ -559,7 +556,7 @@ namespace PosSetupManager.Forms
             AddFL(card, "연동 종료 시간", 450, cy); cy += 26;
             txtStartTime = AddTimeCombo(card, 0, cy, 200);
             txtEndTime = AddTimeCombo(card, 220, cy, 200);
-            txtLinkEndTime = AddTimeCombo(card, 450, cy, 160); cy += 60;
+            txtLinkEndTime = AddTimeCombo(card, 450, cy, 160); cy += 54;
 
             AddFL(card, "소요시간 (자동계산)", 0, cy); AddFL(card, "테이블 모드", 220, cy); cy += 26;
             txtElapsedTime = AddRTB(card, 0, cy, 160);
@@ -567,16 +564,16 @@ namespace PosSetupManager.Forms
             txtElapsedTime.BackColor = Color.FromArgb(245, 245, 245);
 
             // 테이블 모드 라디오버튼 (소요시간 옆)
-            rbTablePost = new RadioButton { Text = "후불", Location = new Point(220, cy + 9), AutoSize = true, Font = FluentFonts.Body };
-            rbTablePre = new RadioButton { Text = "선불", Location = new Point(286, cy + 9), AutoSize = true, Font = FluentFonts.Body };
-            rbTableNone = new RadioButton { Text = "비연동", Location = new Point(352, cy + 9), AutoSize = true, Font = FluentFonts.Body };
+            rbTablePost = new RadioButton { Text = "후불", Location = new Point(220, cy + 7), AutoSize = true, Font = FluentFonts.Body };
+            rbTablePre = new RadioButton { Text = "선불", Location = new Point(286, cy + 7), AutoSize = true, Font = FluentFonts.Body };
+            rbTableNone = new RadioButton { Text = "비연동", Location = new Point(352, cy + 7), AutoSize = true, Font = FluentFonts.Body };
             GroupRBs(rbTablePost, rbTablePre, rbTableNone);
             rbTablePre.CheckedChanged += (s2, e2) => { if (pnlPrepaid != null) pnlPrepaid.Visible = rbTablePre.Checked; };
             rbTablePost.CheckedChanged += (s2, e2) => { AutoSave(); RefreshStoreList(); };
             rbTablePre.CheckedChanged += (s2, e2) => { AutoSave(); RefreshStoreList(); };
             rbTableNone.CheckedChanged += (s2, e2) => { AutoSave(); RefreshStoreList(); };
             card.Controls.AddRange(new Control[] { rbTablePost, rbTablePre, rbTableNone });
-            cy += 60;
+            cy += 54;
 
             txtStartTime.Leave += (s, e) => { txtStartTime.Text = FmtT(txtStartTime.Text); UpdateElapsed(); UpdateStartBtn(); };
             txtEndTime.Leave += (s, e) => { txtEndTime.Text = FmtT(txtEndTime.Text); UpdateElapsed(); UpdateStartBtn(); };
@@ -752,11 +749,11 @@ namespace PosSetupManager.Forms
             // ── 공유기 계정 ──
             var c1 = MakeCard(inner, ref y); cy = 0;
             AddSectionHeader(c1, "공유기 관리자 계정", 0, cy); cy += 36;
-            txtRouterKT = AddRLR(c1, "KT", ref cy);
-            txtRouterLG = AddRLR(c1, "LG", ref cy);
-            txtRouterSK = AddRLR(c1, "SK", ref cy);
-            txtRouterIpTime = AddRLR(c1, "ipTIME", ref cy);
-            txtRouterEtc = AddRLR(c1, "기타", ref cy);
+            txtRouterKT = AddRLC(c1, "KT", ref cy);
+            txtRouterLG = AddRLC(c1, "LG", ref cy);
+            txtRouterSK = AddRLC(c1, "SK", ref cy);
+            txtRouterIpTime = AddRLC(c1, "ipTIME", ref cy);
+            txtRouterEtc = AddRLC(c1, "기타", ref cy);
             c1.Height = cy + 20; y += c1.Height + 16;
 
             // ── 네트워크 ──
@@ -887,9 +884,9 @@ namespace PosSetupManager.Forms
             cf.Controls.Add(rowOPC);
 
             // 오더포스 특이사항
-            var rowOPN = new Panel { Height = 42, BackColor = SURFACE, Margin = new Padding(0, 2, 0, 2) };
-            rowOPN.Controls.Add(new Label { Text = "오더포스 특이사항", Location = new Point(0, 12), AutoSize = true, Font = FluentFonts.Body });
-            txtOrderPosNote = new RoundTextBox { Location = new Point(180, 0), Width = 320, Height = 42 };
+            var rowOPN = new Panel { Height = 36, BackColor = SURFACE, Margin = new Padding(0, 2, 0, 2) };
+            rowOPN.Controls.Add(new Label { Text = "오더포스 특이사항", Location = new Point(0, 8), AutoSize = true, Font = FluentFonts.Body });
+            txtOrderPosNote = new RoundTextBox { Location = new Point(180, 0), Width = 320, Height = 36 };
             rowOPN.Controls.Add(txtOrderPosNote);
             cf.Resize += (s2, e2) => { rowOPN.Width = cf.ClientSize.Width - 32; };
             rowOPN.Width = 700;
@@ -949,6 +946,13 @@ namespace PosSetupManager.Forms
             {
                 if (pnlCouponX != null) pnlCouponX.Visible = (v == "X");
                 if (pnlCouponXChecklist != null) pnlCouponXChecklist.Visible = (v == "X");
+                if (v == "X" && !_isLoading)
+                {
+                    if (txtCouponXReason != null && string.IsNullOrEmpty(txtCouponXReason.Text))
+                        txtCouponXReason.Text = "메뉴생성권한없음";
+                    if (txtCouponXReasonChecklist != null && string.IsNullOrEmpty(txtCouponXReasonChecklist.Text))
+                        txtCouponXReasonChecklist.Text = "메뉴생성권한없음";
+                }
             };
 
             // 쿠폰 X 사유 (체크리스트 탭 내)
@@ -976,12 +980,13 @@ namespace PosSetupManager.Forms
 
             pnlCouponX = new Panel { Location = new Point(0, cy), Height = 0, Width = 0, Visible = false };
             //
-            txtCouponXReason = new RoundTextBox { Location = new Point(150, 4), Width = 340, Height = 42 };
+            txtCouponXReason = new RoundTextBox { Location = new Point(150, 4), Width = 340, Height = 36 };
             card.Controls.Add(pnlCouponX);
 
             card.Controls.Add(new Label { Text = "원격교육 받으실 연락처", Location = new Point(0, cy + 12), AutoSize = true, Font = FluentFonts.Body });
-            txtRemoteEduContact = new RoundTextBox { Location = new Point(200, cy), Width = 260, Height = 42 };
-            card.Controls.Add(txtRemoteEduContact); cy += 50;
+            txtRemoteEduContact = new RoundTextBox { Location = new Point(200, cy), Width = 260, Height = 36 };
+            AttachPhoneFormatter(txtRemoteEduContact);
+            card.Controls.Add(txtRemoteEduContact); cy += 44;
 
             AddDivider(card, cy); cy += 20;
             card.Controls.Add(new Label { Text = "설치 시 이슈", Location = new Point(0, cy), AutoSize = true, Font = FluentFonts.Body }); cy += 24;
@@ -1014,6 +1019,30 @@ namespace PosSetupManager.Forms
             btnClear.Click += (s, e) => { txtAttachmentPath.Text = ""; AutoSave(); };
             fileCard.Controls.AddRange(new Control[] { txtAttachmentPath, btnSelectFile, btnClear });
             fileCard.Height = fcy + 114;
+
+            DragEventHandler onDragEnter = (s, e) =>
+            {
+                if (e.Data.GetDataPresent(DataFormats.FileDrop))
+                    e.Effect = DragDropEffects.Copy;
+            };
+            DragEventHandler onDragDrop = (s, e) =>
+            {
+                var files = e.Data.GetData(DataFormats.FileDrop) as string[];
+                if (files == null || files.Length == 0) return;
+                var existing = txtAttachmentPath.Text
+                    .Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries)
+                    .ToList();
+                foreach (var f in files)
+                    if (!existing.Contains(f)) existing.Add(f);
+                txtAttachmentPath.Text = string.Join(Environment.NewLine, existing);
+                AutoSave();
+            };
+            txtAttachmentPath.AllowDrop = true;
+            txtAttachmentPath.DragEnter += onDragEnter;
+            txtAttachmentPath.DragDrop += onDragDrop;
+            fileCard.AllowDrop = true;
+            fileCard.DragEnter += onDragEnter;
+            fileCard.DragDrop += onDragDrop;
             y += fileCard.Height + 16;
 
             btnRegister = new FluentButton { Text = "🌐  다우오피스 자동 등록", IsPrimary = true, Location = new Point(0, y), Width = 340, Height = 50 };
@@ -1168,6 +1197,7 @@ namespace PosSetupManager.Forms
                     if (_currentSession?.Id == id) AutoSave();
                     _workspace.CompleteSession(id);
                     if (_currentSession?.Id == id) ClearSession();
+                    ApplyRouterAutocomplete();
                     RefreshStoreList();
                 };
                 item.OnMoveUp += id =>
@@ -1302,6 +1332,7 @@ namespace PosSetupManager.Forms
             oxMenuBoardAuto.SetValue(d.Checklist.CheckMenuBoardAutoRun); oxCoupon.SetValue(d.Checklist.CheckCoupon);
             txtCouponXReason.Text = d.Finish.CouponXReason;
             if (txtCouponXReasonChecklist != null) txtCouponXReasonChecklist.Text = d.Finish.CouponXReason; txtRemoteEduContact.Text = d.Finish.RemoteEduContact; txtInstallIssue.Text = d.Finish.InstallIssue;
+            if (txtSmsMessage != null) txtSmsMessage.Text = d.Finish.SmsMessage;
             if (pnlCouponX != null) pnlCouponX.Visible = d.Checklist.CheckCoupon == "X";
             if (pnlCouponXChecklist != null) pnlCouponXChecklist.Visible = d.Checklist.CheckCoupon == "X";
             if (pnlPrepaid != null) pnlPrepaid.Visible = d.Pos.TableMode == "선불";
@@ -1350,6 +1381,7 @@ namespace PosSetupManager.Forms
             d.Checklist.CheckNoticeBoardAdmin = oxNoticeBoardAdmin.Value; d.Checklist.CheckMenuBoardVer = oxMenuBoardVer.Value;
             d.Checklist.CheckMenuBoardAutoRun = oxMenuBoardAuto.Value; d.Checklist.CheckCoupon = oxCoupon.Value;
             d.Finish.CouponXReason = string.IsNullOrEmpty(txtCouponXReason.Text) && txtCouponXReasonChecklist != null ? txtCouponXReasonChecklist.Text : txtCouponXReason.Text; d.Finish.RemoteEduContact = txtRemoteEduContact.Text; d.Finish.InstallIssue = txtInstallIssue.Text;
+            if (txtSmsMessage != null) d.Finish.SmsMessage = txtSmsMessage.Text;
         }
 
         public ChecklistData GetData() { if (_currentSession == null) return new ChecklistData(); Save2Ses(_currentSession); return _currentSession.Data; }
@@ -1537,13 +1569,43 @@ namespace PosSetupManager.Forms
 
         private RoundTextBox AddRTB(Control p, int x, int y, int w)
         {
-            var tb = new RoundTextBox { Location = new Point(x, y), Width = w, Height = 42 };
+            var tb = new RoundTextBox { Location = new Point(x, y), Width = w, Height = 36 };
             p.Controls.Add(tb); return tb;
+        }
+
+        private static string FormatPhone(string digits)
+        {
+            if (digits.Length > 11) digits = digits.Substring(0, 11);
+            int n = digits.Length;
+            if (n <= 3) return digits;
+            if (n <= 7) return digits.Substring(0, 3) + "-" + digits.Substring(3);
+            // n=8..9: 중간 그룹 점차 증가, n=10: 3-3-4, n=11: 3-4-4
+            return digits.Substring(0, 3) + "-" + digits.Substring(3, n - 7) + "-" + digits.Substring(n - 4);
+        }
+
+        private static void AttachPhoneFormatter(RoundTextBox tb)
+        {
+            bool fmt = false;
+            tb.Inner.TextChanged += (s, e) =>
+            {
+                if (fmt) return;
+                fmt = true;
+                int caret = tb.Inner.SelectionStart;
+                string raw = tb.Inner.Text;
+                int digitsBeforeCaret = raw.Take(Math.Min(caret, raw.Length)).Count(char.IsDigit);
+                string formatted = FormatPhone(new string(raw.Where(char.IsDigit).ToArray()));
+                tb.Inner.Text = formatted;
+                int pos = 0, dc = 0;
+                while (pos < formatted.Length && dc < digitsBeforeCaret)
+                    if (char.IsDigit(formatted[pos++])) dc++;
+                tb.Inner.SelectionStart = pos;
+                fmt = false;
+            };
         }
 
         private RoundComboBox AddTimeCombo(Control p, int x, int y, int w)
         {
-            var cb = new RoundComboBox { Location = new Point(x, y), Width = w, Height = 42 };
+            var cb = new RoundComboBox { Location = new Point(x, y), Width = w, Height = 36 };
             cb.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDown;
             cb.Inner.ItemHeight = 26;
             for (int h = 8; h <= 20; h++)
@@ -1557,9 +1619,48 @@ namespace PosSetupManager.Forms
 
         private RoundTextBox AddRLR(Control p, string label, ref int y, int w = 220)
         {
-            p.Controls.Add(new Label { Text = label, Location = new Point(0, y + 12), AutoSize = true, Font = FluentFonts.Body, ForeColor = TXT_S });
-            var tb = new RoundTextBox { Location = new Point(220, y), Width = w, Height = 42 };
-            p.Controls.Add(tb); y += 52; return tb;
+            p.Controls.Add(new Label { Text = label, Location = new Point(0, y + 10), AutoSize = true, Font = FluentFonts.Body, ForeColor = TXT_S });
+            var tb = new RoundTextBox { Location = new Point(220, y), Width = w, Height = 36 };
+            p.Controls.Add(tb); y += 46; return tb;
+        }
+
+        private RoundComboBox AddRLC(Control p, string label, ref int y, int w = 220)
+        {
+            p.Controls.Add(new Label { Text = label, Location = new Point(0, y + 10), AutoSize = true, Font = FluentFonts.Body, ForeColor = TXT_S });
+            var cb = new RoundComboBox { Location = new Point(220, y), Width = w, Height = 36 };
+            cb.Inner.DropDownStyle = ComboBoxStyle.DropDown;
+            cb.Inner.Click += (s, e) => { if (SettingsDialog.RouterAutocompleteEnabled) cb.Inner.DroppedDown = true; };
+            p.Controls.Add(cb); y += 46; return cb;
+        }
+
+        private void ApplyRouterAutocomplete()
+        {
+            var fields = new[]
+            {
+                (txtRouterKT,    (Func<Models.NetworkInfo, string>)(n => n.RouterKT)),
+                (txtRouterLG,    (Func<Models.NetworkInfo, string>)(n => n.RouterLG)),
+                (txtRouterSK,    (Func<Models.NetworkInfo, string>)(n => n.RouterSK)),
+                (txtRouterIpTime,(Func<Models.NetworkInfo, string>)(n => n.RouterIpTime)),
+                (txtRouterEtc,   (Func<Models.NetworkInfo, string>)(n => n.RouterEtc)),
+            };
+
+            bool enabled = SettingsDialog.RouterAutocompleteEnabled;
+            var allSessions = new System.Collections.Generic.List<Models.StoreSession>();
+            allSessions.AddRange(_workspace.ActiveSessions);
+            allSessions.AddRange(_workspace.CompletedSessions);
+
+            foreach (var (cb, getter) in fields)
+            {
+                if (cb == null) continue;
+                cb.Inner.Items.Clear();
+                if (!enabled) continue;
+                foreach (var s in allSessions)
+                {
+                    var v = getter(s.Data.Network);
+                    if (!string.IsNullOrEmpty(v) && !cb.Inner.Items.Contains(v))
+                        cb.Inner.Items.Add(v);
+                }
+            }
         }
 
         private RadioButton AddRB(Control p, string text, int x, int y)

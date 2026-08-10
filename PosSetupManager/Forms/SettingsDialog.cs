@@ -8,7 +8,7 @@ namespace PosSetupManager.Forms
     public class SettingsDialog : Form
     {
         private TextBox txtId, txtPw, txtSavePath;
-        private CheckBox chkAutoReport;
+        private CheckBox chkAutoReport, chkRouterAutocomplete;
         private FluentButton btnSave, btnCancel, btnBrowse;
 
         private static readonly string SettingsFile = Path.Combine(
@@ -66,9 +66,21 @@ namespace PosSetupManager.Forms
                 ForeColor = FluentColors.TextPrimary,
                 Checked = true
             };
-            this.Controls.Add(chkAutoReport); y += 36;
+            this.Controls.Add(chkAutoReport); y += 30;
+
+            chkRouterAutocomplete = new CheckBox
+            {
+                Text = "공유기 계정 입력 시 이전 이력 자동완성",
+                Location = new Point(24, y),
+                AutoSize = true,
+                Font = FluentFonts.Body,
+                ForeColor = FluentColors.TextPrimary,
+                Checked = true
+            };
+            this.Controls.Add(chkRouterAutocomplete); y += 36;
 
             // ── 버튼 ──
+            this.Size = new Size(420, 396);
             btnSave = new FluentButton { Text = "저장", IsPrimary = true, Location = new Point(24, y), Width = 170 };
             btnSave.Click += BtnSave_Click;
             btnCancel = new FluentButton { Text = "취소", IsPrimary = false, Location = new Point(204, y), Width = 176 };
@@ -93,6 +105,7 @@ namespace PosSetupManager.Forms
                 CredentialStore.Save(txtId.Text.Trim(), txtPw.Text);
             SavePath = txtSavePath.Text;
             AutoReportEnabled = chkAutoReport.Checked;
+            RouterAutocompleteEnabled = chkRouterAutocomplete.Checked;
             SaveSettings();
             this.DialogResult = DialogResult.OK;
             this.Close();
@@ -108,11 +121,13 @@ namespace PosSetupManager.Forms
             LoadSettingsFile();
             txtSavePath.Text = SavePath ?? "";
             chkAutoReport.Checked = AutoReportEnabled;
+            chkRouterAutocomplete.Checked = RouterAutocompleteEnabled;
         }
 
         // ── 설정 관리 ──
         public static string SavePath { get; private set; }
         public static bool AutoReportEnabled { get; private set; } = true;
+        public static bool RouterAutocompleteEnabled { get; private set; } = true;
 
         public static string GetSavePath()
         {
@@ -130,6 +145,7 @@ namespace PosSetupManager.Forms
                 var parts = content.Split('|');
                 SavePath = parts[0];
                 AutoReportEnabled = parts.Length < 2 || parts[1] != "false";
+                RouterAutocompleteEnabled = parts.Length < 3 || parts[2] != "false";
             }
             catch { }
         }
@@ -140,7 +156,7 @@ namespace PosSetupManager.Forms
             {
                 Directory.CreateDirectory(Path.GetDirectoryName(SettingsFile));
                 File.WriteAllText(SettingsFile,
-                    (SavePath ?? "") + "|" + (AutoReportEnabled ? "true" : "false"));
+                    (SavePath ?? "") + "|" + (AutoReportEnabled ? "true" : "false") + "|" + (RouterAutocompleteEnabled ? "true" : "false"));
             }
             catch { }
         }
