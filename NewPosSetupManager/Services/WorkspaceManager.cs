@@ -40,6 +40,7 @@ namespace NewPosSetupManager.Services
         public StoreSession AddSession()
         {
             var session = new StoreSession();
+            session.Data.Basic.InstallDate = DateTime.Today.ToString("yyyy-MM-dd");
             ActiveSessions.Add(session);
             Save();
             return session;

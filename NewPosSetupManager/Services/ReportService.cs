@@ -23,7 +23,7 @@ namespace NewPosSetupManager.Services
                 sb.AppendLine();
                 sb.AppendLine("[ 기본정보 ]");
                 sb.AppendLine(string.Format("매장명        : {0}", d.Basic.StoreName));
-                sb.AppendLine(string.Format("설치 예정일   : {0} {1}", d.Basic.InstallDate.HasValue ? d.Basic.InstallDate.Value.ToString("yyyy-MM-dd") : "", d.Basic.InstallTime));
+                sb.AppendLine(string.Format("설치 예정일   : {0} {1}", d.Basic.InstallDate ?? "", d.Basic.InstallTime));
                 sb.AppendLine(string.Format("원격 담당자   : {0}", d.Basic.RemoteManager));
                 sb.AppendLine(string.Format("시작 시간     : {0}", d.Basic.StartTime));
                 sb.AppendLine(string.Format("종료 시간     : {0}", d.Basic.EndTime));

@@ -7,7 +7,7 @@ namespace NewPosSetupManager.Models
     public class BasicInfo
     {
         public string StoreName { get; set; } = "";
-        public DateTime? InstallDate { get; set; }
+        public string InstallDate { get; set; } = "";
         public string InstallTime { get; set; } = "";
         public string RemoteManager { get; set; } = "";
         public string StartTime { get; set; } = "";

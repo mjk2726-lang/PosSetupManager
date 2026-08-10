@@ -39,11 +39,17 @@ input:focus, select:focus, textarea:focus { outline: none; }
 
 /* ── Sidebar ── */
 .sidebar {
-  width: 280px; min-width: 280px;
+  width: 280px; min-width: 200px;
   background: var(--nav);
   display: flex; flex-direction: column;
-  overflow: hidden;
+  overflow: hidden; position: relative;
 }
+.sidebar-resizer {
+  position: absolute; right: 0; top: 0; bottom: 0;
+  width: 5px; cursor: col-resize; z-index: 100;
+  background: transparent; transition: background .15s;
+}
+.sidebar-resizer:hover, .sidebar-resizer.dragging { background: var(--accent); }
 
 .sidebar-top { padding: 16px 16px 12px; }
 
@@ -94,11 +100,17 @@ input:focus, select:focus, textarea:focus { outline: none; }
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   margin-bottom: 3px;
 }
-.card-meta { display: flex; align-items: center; gap: 6px; }
+.card-meta { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .card-date { color: rgba(220,225,235,.5); font-size: 11px; }
 .card-status {
   font-size: 10px; padding: 1px 6px; border-radius: 6px; font-weight: 600;
 }
+.card-mode {
+  font-size: 10px; padding: 1px 6px; border-radius: 6px; font-weight: 600;
+  background: rgba(255,255,255,.1); color: rgba(220,225,235,.7);
+}
+.card-mode.선불 { background: rgba(240,160,0,.2); color: var(--warn); }
+.card-mode.비연동 { background: rgba(220,80,80,.2); color: #ff9090; }
 .card-status.done { background: var(--success-bg); color: var(--success); }
 .card-status.active { background: var(--warn-bg); color: var(--warn); }
 .card-status.idle { background: rgba(255,255,255,.1); color: rgba(220,225,235,.5); }
@@ -402,3 +414,25 @@ button:focus-visible, input:focus-visible, select:focus-visible {
 /* Drag handle cursor */
 .store-card[draggable="true"] { cursor: grab; }
 .store-card[draggable="true"]:active { cursor: grabbing; }
+
+/* Autocomplete dropdown */
+.ac-dropdown {
+  position: fixed; z-index: 9999;
+  background: var(--surface); border: 1.5px solid var(--border);
+  border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,.12);
+  max-height: 220px; overflow-y: auto;
+}
+.ac-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 10px; cursor: pointer;
+  transition: background var(--trans);
+}
+.ac-item:hover { background: var(--bg); }
+.ac-text { flex: 1; font-size: 13px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ac-del {
+  width: 20px; height: 20px; border-radius: 50%; flex-shrink: 0;
+  background: transparent; color: var(--text2); font-size: 15px;
+  display: flex; align-items: center; justify-content: center;
+  transition: background var(--trans), color var(--trans);
+}
+.ac-del:hover { background: var(--danger-bg); color: var(--danger); }

@@ -36,9 +36,9 @@ namespace NewPosSetupManager.Services
 
                 progress?.Report("기본 정보 입력 중...");
                 await input.FillText("_zzv3du17w", d.Basic.StoreName);
-                if (d.Basic.InstallDate.HasValue)
+                if (!string.IsNullOrEmpty(d.Basic.InstallDate) && DateTime.TryParse(d.Basic.InstallDate, out var installDateTime))
                 {
-                    await input.FillDate("_lwltls4xf", d.Basic.InstallDate.Value, d.Basic.InstallTime);
+                    await input.FillDate("_lwltls4xf", installDateTime, d.Basic.InstallTime);
                     var timeVal = await input.GetValue("_lwltls4xf", "input[data-time='start']");
                     System.Diagnostics.Debug.WriteLine("시간 값: " + timeVal);
                 }
@@ -69,7 +69,7 @@ namespace NewPosSetupManager.Services
                 await input.FillLocalMode(d.Checklist.LocalModeMenuBoard == "O", d.Checklist.LocalModeNoticeBoard == "O");
                 await input.FillOx("_mh5liezmo", d.Checklist.CheckFirewall);
                 await input.FillOx("_dmn3c8mu6", d.Checklist.CheckFirewallPopup);
-                await input.FillSelect("_64h1g11ex", d.Checklist.OrderPosCount);
+                await input.FillText("_64h1g11ex", d.Checklist.OrderPosCount);
                 await input.FillText("_p92n7dwzi", d.Checklist.OrderPosNote);
                 await input.FillOx("_r2r9w8f8p", d.Checklist.CheckHiorderLogin);
                 await input.FillOx("_0xsazai6o", d.Checklist.CheckSyncOrder);
@@ -104,7 +104,8 @@ namespace NewPosSetupManager.Services
 
                 if (result.Item1)
                 {
-                    if (!string.IsNullOrEmpty(d.Finish.RemoteEduContact))
+                    var eduDigits = System.Text.RegularExpressions.Regex.Replace(d.Finish.RemoteEduContact ?? "", @"\D", "");
+                    if (eduDigits.Length >= 9)
                     {
                         progress?.Report("교육지원 등록 중...");
                         var eduPage = await BrowserService.NewPageAsync();

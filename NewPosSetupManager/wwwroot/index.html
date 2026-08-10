@@ -47,6 +47,7 @@
         <span>📅</span> 캘린더에서 가져오기
       </button>
     </div>
+    <div class="sidebar-resizer"></div>
   </aside>
 
   <!-- ━━━ MAIN ━━━ -->
@@ -106,7 +107,7 @@
               </div>
               <div class="fg">
                 <label>설치 예정일</label>
-                <input class="fi" type="date" id="f-installDate" data-path="basic.installDate">
+                <input class="fi" type="text" id="f-installDate" placeholder="예: 2026-08-10" data-path="basic.installDate">
               </div>
               <div class="fg">
                 <label>설치 예정 시간</label>
@@ -144,8 +145,8 @@
                 <input class="fi" type="text" id="f-linkEndTime" list="time-list" placeholder="17:30" data-path="basic.linkEndTime" autocomplete="off">
               </div>
               <div class="fg">
-                <label>소요 시간 (자동계산)</label>
-                <input class="fi" type="text" id="f-elapsedTime" readonly data-path="basic.elapsedTime" placeholder="자동계산">
+                <label>소요 시간</label>
+                <input class="fi" type="text" id="f-elapsedTime" data-path="basic.elapsedTime" placeholder="자동계산 또는 직접 입력">
               </div>
             </div>
             <div class="btn-row" style="margin-top:12px">
@@ -342,6 +343,10 @@
         <!-- ══ TAB 3: 체크리스트 ══ -->
         <div class="tab-page" id="page3">
 
+          <div class="btn-row" style="justify-content:flex-end">
+            <button class="btn-secondary" id="btnAllO" style="height:28px;font-size:12px;padding:0 14px">✓ 전체 O</button>
+          </div>
+
           <div class="form-section">
             <div class="section-title">방화벽</div>
             <div class="checklist-row">
@@ -365,16 +370,7 @@
             <div class="form-row cols-2" style="align-items:end">
               <div class="fg">
                 <label>오더 포스 갯수</label>
-                <select class="fi" id="f-orderPosCount" data-path="checklist.orderPosCount">
-                  <option value="">선택</option>
-                  <option value="0">0대</option>
-                  <option value="1">1대</option>
-                  <option value="2">2대</option>
-                  <option value="3">3대</option>
-                  <option value="4">4대</option>
-                  <option value="5">5대</option>
-                  <option value="6">6대 이상</option>
-                </select>
+                <input class="fi" type="number" id="f-orderPosCount" data-path="checklist.orderPosCount" placeholder="0" min="0" style="width:80px">
               </div>
               <div class="fg">
                 <label>오더 포스 특이사항</label>
@@ -400,28 +396,28 @@
           <div class="form-section" id="prepaidSection">
             <div class="section-title">선불 매장 확인</div>
             <div class="checklist-row">
-              <div class="checklist-label">테이블 대기 체크</div>
+              <div class="checklist-label">선/후불 테이블확인</div>
               <div class="ox-group" id="ox-prepaidTableCheck" data-path="checklist.prepaidTableCheck">
                 <button class="ox-btn O" data-val="O">O</button>
                 <button class="ox-btn X" data-val="X">X</button>
               </div>
             </div>
             <div class="checklist-row">
-              <div class="checklist-label">결제 체크</div>
+              <div class="checklist-label">결제&amp;취소 주문확인</div>
               <div class="ox-group" id="ox-prepaidPaymentCheck" data-path="checklist.prepaidPaymentCheck">
                 <button class="ox-btn O" data-val="O">O</button>
                 <button class="ox-btn X" data-val="X">X</button>
               </div>
             </div>
             <div class="checklist-row">
-              <div class="checklist-label">5인 이상 체크</div>
+              <div class="checklist-label">5만원이상 테스트 결제 진행</div>
               <div class="ox-group" id="ox-prepaidOver5Man" data-path="checklist.prepaidOver5Man">
                 <button class="ox-btn O" data-val="O">O</button>
                 <button class="ox-btn X" data-val="X">X</button>
               </div>
             </div>
             <div class="checklist-row">
-              <div class="checklist-label">KSNET 결제</div>
+              <div class="checklist-label">KSNET(카드결제 테스트진행)</div>
               <div class="ox-group" id="ox-prepaidKSNET" data-path="checklist.prepaidKSNET">
                 <button class="ox-btn O" data-val="O">O</button>
                 <button class="ox-btn X" data-val="X">X</button>
@@ -432,7 +428,10 @@
           <div class="form-section">
             <div class="section-title">기타 체크</div>
             <div class="checklist-row">
-              <div class="checklist-label">테이블 정렬 확인</div>
+              <div>
+                <div class="checklist-label">동기화 후 환경설정 테이블관리</div>
+                <div class="checklist-sub">→ 테이블명 순으로 정렬</div>
+              </div>
               <div class="ox-group" id="ox-checkTableSort" data-path="checklist.checkTableSort">
                 <button class="ox-btn O" data-val="O">O</button>
                 <button class="ox-btn X" data-val="X">X</button>
@@ -466,13 +465,7 @@
                 <button class="ox-btn X" data-val="X">X</button>
               </div>
             </div>
-            <div class="checklist-row">
-              <div class="checklist-label">알림판 어드민 확인</div>
-              <div class="ox-group" id="ox-checkNoticeBoardAdmin" data-path="checklist.checkNoticeBoardAdmin">
-                <button class="ox-btn O" data-val="O">O</button>
-                <button class="ox-btn X" data-val="X">X</button>
-              </div>
-            </div>
+
             <div class="checklist-row">
               <div class="checklist-label">메뉴판 Ver 확인</div>
               <div class="ox-group" id="ox-checkMenuBoardVer" data-path="checklist.checkMenuBoardVer">
@@ -500,7 +493,8 @@
             </div>
             <div class="fg" id="couponReasonWrap" style="margin-top:10px;display:none">
               <label>쿠폰 미생성 사유</label>
-              <input class="fi" type="text" id="f-couponXReason" placeholder="사유 입력" data-path="finish.couponXReason">
+              <input class="fi router-ac" type="text" id="f-couponXReason" list="dl-couponReason" placeholder="사유 입력" data-path="finish.couponXReason" data-ac-key="couponReason" autocomplete="off">
+              <datalist id="dl-couponReason"></datalist>
             </div>
           </div>
         </div>
@@ -554,6 +548,7 @@
 <datalist id="time-list"></datalist>
 
 <div id="toast" class="toast"></div>
+<div id="acDropdown" class="ac-dropdown hidden"></div>
 
 <script src="js/bridge.js"></script>
 <script src="js/app.js"></script>

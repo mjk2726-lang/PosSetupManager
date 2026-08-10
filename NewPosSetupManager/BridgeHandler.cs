@@ -215,7 +215,7 @@ namespace NewPosSetupManager
                     var session = _workspace.AddSession();
                     session.Data.Basic.StoreName = item.StoreName;
                     if (item.InstallDate.HasValue)
-                        session.Data.Basic.InstallDate = item.InstallDate.Value;
+                        session.Data.Basic.InstallDate = item.InstallDate.Value.ToString("yyyy-MM-dd");
                     session.Data.Basic.InstallTime = item.InstallTime;
                     session.Data.Basic.RemoteManager = item.RemoteManager;
                     session.Data.Basic.EngineerContact = item.EngineerContact;
