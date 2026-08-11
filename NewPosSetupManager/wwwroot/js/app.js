@@ -124,8 +124,14 @@ function showAcDropdown(inp, key) {
     text.addEventListener('mousedown', e => {
       e.preventDefault();
       inp.value = v;
-      inp.dispatchEvent(new Event('input'));
       dd.classList.add('hidden');
+      acSave(key, v);
+      const session = currentSession();
+      if (session && inp.dataset.path) {
+        setPath(session.data, inp.dataset.path, v);
+        updateProgress(session);
+        scheduleSave();
+      }
     });
     item.appendChild(text);
     item.appendChild(del);
