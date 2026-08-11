@@ -93,12 +93,19 @@ function acSave(key, value) {
   if (list.length > AC_MAX) list = list.slice(0, AC_MAX);
   localStorage.setItem(AC_PREFIX + key, JSON.stringify(list));
 }
+function setAcHighlight(dd, items, idx) {
+  dd.dataset.activeIndex = idx;
+  items.forEach((item, i) => item.classList.toggle('ac-highlighted', i === idx));
+  if (idx >= 0 && items[idx]) items[idx].scrollIntoView({ block: 'nearest' });
+}
+
 function showAcDropdown(inp, key) {
   const dd = $('acDropdown');
   const q = inp.value.trim().toLowerCase();
   const items = acLoad(key).filter(v => !q || v.toLowerCase().includes(q));
   if (items.length === 0) { dd.classList.add('hidden'); return; }
   dd.innerHTML = '';
+  dd.dataset.activeIndex = '-1';
   items.forEach(v => {
     const item = document.createElement('div');
     item.className = 'ac-item';
@@ -143,6 +150,28 @@ function initRouterAutocomplete() {
       if (!inp.value.trim()) return;
       acSave(key, inp.value.trim());
     });
+    inp.addEventListener('keydown', e => {
+      const dd = $('acDropdown');
+      if (dd.classList.contains('hidden')) return;
+      const acItems = Array.from(dd.querySelectorAll('.ac-item'));
+      let idx = parseInt(dd.dataset.activeIndex ?? '-1');
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setAcHighlight(dd, acItems, Math.min(idx + 1, acItems.length - 1));
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setAcHighlight(dd, acItems, Math.max(idx - 1, -1));
+      } else if (e.key === 'Enter') {
+        idx = parseInt(dd.dataset.activeIndex ?? '-1');
+        if (idx >= 0 && acItems[idx]) {
+          e.preventDefault();
+          const t = acItems[idx].querySelector('.ac-text');
+          if (t) { inp.value = t.textContent; inp.dispatchEvent(new Event('input')); dd.classList.add('hidden'); }
+        }
+      } else if (e.key === 'Escape') {
+        dd.classList.add('hidden');
+      }
+    });
   });
   document.addEventListener('mousedown', e => {
     if (!$('acDropdown').contains(e.target)) $('acDropdown').classList.add('hidden');
@@ -172,8 +201,9 @@ function calcProgress(session) {
 
 function getMissingFields(d) {
   const missing = [];
-  if (!d.basic.storeName)   missing.push('매장명');
-  if (!d.basic.installTime) missing.push('설치 예정 시간');
+  if (!d.basic.storeName)      missing.push('매장명');
+  if (!d.basic.remoteManager)  missing.push('원격 담당자');
+  if (!d.basic.installTime)    missing.push('설치 예정 시간');
   if (!d.basic.startTime)   missing.push('작업 시작 시간');
   if (!d.basic.endTime)     missing.push('작업 종료 시간');
   if (!d.pos.tableMode)     missing.push('테이블 모드');
@@ -977,6 +1007,9 @@ $('btnRegister').addEventListener('click', () => {
     log.textContent = '⚠ 필수 항목을 먼저 입력해주세요:\n\n' + missing.map(m => '  • ' + m).join('\n');
     return;
   }
+  // 딜레이 저장 취소 후 즉시 저장 — C#에 최신 데이터 전달 보장
+  clearTimeout(S.saveTimer);
+  doSave();
   const log = $('regLog');
   log.textContent = '';
   log.classList.add('visible');

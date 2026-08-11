@@ -35,7 +35,11 @@ namespace NewPosSetupManager.Services
                 await _page.EvaluateAsync(@"([cid, val]) => {
                     var el = document.querySelector(`[data-cid='${cid}'] input[type='text']`)
                            || document.querySelector(`[data-cid='${cid}'] input.txt`);
-                    if (el) el.value = val;
+                    if (el) {
+                        el.value = val;
+                        el.dispatchEvent(new Event('input', { bubbles: true }));
+                        el.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
                 }", new object[] { cid, value });
             }
             catch { }
