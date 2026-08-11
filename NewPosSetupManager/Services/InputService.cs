@@ -26,6 +26,21 @@ namespace NewPosSetupManager.Services
             catch { }
         }
 
+        // 폼 자동 포맷터를 우회하여 값을 직접 세팅 (이벤트 미발생)
+        public async Task FillTextRaw(string cid, string value)
+        {
+            if (string.IsNullOrEmpty(value)) return;
+            try
+            {
+                await _page.EvaluateAsync(@"([cid, val]) => {
+                    var el = document.querySelector(`[data-cid='${cid}'] input[type='text']`)
+                           || document.querySelector(`[data-cid='${cid}'] input.txt`);
+                    if (el) el.value = val;
+                }", new object[] { cid, value });
+            }
+            catch { }
+        }
+
         public async Task FillTextArea(string cid, string value)
         {
             if (string.IsNullOrEmpty(value)) return;

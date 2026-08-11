@@ -35,7 +35,10 @@ namespace NewPosSetupManager.Services
                 var input = new InputService(page);
 
                 progress?.Report("기본 정보 입력 중...");
-                await input.FillText("_zzv3du17w", d.Basic.StoreName);
+                var daouStoreName = string.IsNullOrEmpty(d.Basic.StoreId)
+                    ? d.Basic.StoreName
+                    : d.Basic.StoreName + " " + d.Basic.StoreId;
+                await input.FillText("_zzv3du17w", daouStoreName);
                 if (!string.IsNullOrEmpty(d.Basic.InstallDate) && DateTime.TryParse(d.Basic.InstallDate, out var installDateTime))
                 {
                     await input.FillDate("_lwltls4xf", installDateTime, d.Basic.InstallTime);
@@ -89,7 +92,9 @@ namespace NewPosSetupManager.Services
                 if (d.Checklist.CheckCoupon == "X")
                     await input.FillText("_cewz3pfou", d.Finish.CouponXReason);
 
-                await input.FillText("_1zbjr7ank", d.Finish.RemoteEduContact);
+                var rawEduContact = d.Finish.RemoteEduContact ?? "";
+                var eduPhone = System.Text.RegularExpressions.Regex.Replace(rawEduContact, @"\D", "");
+                await input.FillTextRaw("_1zbjr7ank", rawEduContact);
                 await input.FillTextArea("_l3ylkbwy6", d.Finish.InstallIssue);
 
                 if (d.Basic.AttachmentPaths != null && d.Basic.AttachmentPaths.Count > 0)
@@ -104,8 +109,7 @@ namespace NewPosSetupManager.Services
 
                 if (result.Item1)
                 {
-                    var eduDigits = System.Text.RegularExpressions.Regex.Replace(d.Finish.RemoteEduContact ?? "", @"\D", "");
-                    if (eduDigits.Length >= 9)
+                    if (eduPhone.Length >= 9)
                     {
                         progress?.Report("교육지원 등록 중...");
                         var eduPage = await BrowserService.NewPageAsync();

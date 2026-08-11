@@ -183,21 +183,17 @@ namespace NewPosSetupManager
         {
             var phone = msg["phone"]?.ToString();
             var message = msg["message"]?.ToString() ?? "";
+            _owner.Invoke((Action)(() => System.Windows.Forms.Clipboard.SetText(message)));
             try
             {
                 var uri = "sms:" + phone + "?body=" + Uri.EscapeDataString(message);
                 System.Diagnostics.Process.Start(
                     new System.Diagnostics.ProcessStartInfo(uri) { UseShellExecute = true });
+                Send(new { type = "smsSent" });
             }
             catch
             {
-                _owner.Invoke((Action)(() =>
-                {
-                    System.Windows.Forms.Clipboard.SetText(message);
-                    MessageBox.Show(
-                        $"문자 앱을 열 수 없습니다.\n메시지를 클립보드에 복사했습니다.\n수신번호: {phone}",
-                        "알림", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                }));
+                Send(new { type = "smsCopied" });
             }
         }
 

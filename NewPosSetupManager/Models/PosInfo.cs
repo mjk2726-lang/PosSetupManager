@@ -13,6 +13,8 @@ namespace NewPosSetupManager.Models
         // "O" | "X"
         public string LmmAccount { get; set; } = "";
         public List<string> PosTypes { get; set; } = new List<string>();
+        // "타밴" | "우리밴"
+        public string VanType { get; set; } = "";
         // "후불" | "선불" | "비연동"
         public string TableMode { get; set; } = "";
     }

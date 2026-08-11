@@ -11,6 +11,7 @@ const S = {
   showCompleted: false,
   search: '',
   dragging: null,
+  filterDate: new Date().toISOString().slice(0, 10),
 };
 
 // ── Helpers ────────────────────────────────────────
@@ -153,14 +154,50 @@ function calcProgress(session) {
   if (!session) return { pct: 0, dots: [false, false, false, false] };
   const d = session.data;
   const dots = [
-    !!(d.basic.storeName && d.basic.startTime && d.basic.endTime),
+    !!(d.basic.storeName && d.basic.startTime && d.basic.endTime && d.basic.installTime),
     !!(d.pos.remoteAccount && d.pos.remoteAdmin && d.pos.lmmAccount
-        && d.pos.posTypes && d.pos.posTypes.length >= 2 && d.pos.tableMode),
-    !!(d.checklist.checkDHCP && d.checklist.checkExternalIP),
-    !!(d.checklist.checkFirewall && d.checklist.checkHiorderLogin && d.checklist.checkCoupon),
+        && d.pos.posTypes && d.pos.posTypes.length >= 1 && d.pos.vanType && d.pos.tableMode),
+    !!(d.checklist.checkDHCP && d.checklist.checkExternalIP
+        && d.checklist.localModeMenuBoard && d.checklist.localModeNoticeBoard),
+    !!(d.checklist.checkFirewall && d.checklist.checkFirewallPopup
+        && d.checklist.checkHiorderLogin && d.checklist.checkSyncOrder
+        && d.checklist.checkTableSort && d.checklist.wifiStatus
+        && d.checklist.checkMenuImage && d.checklist.checkMenuBoardAutoRun
+        && d.checklist.checkNoticeBoardVer && d.checklist.checkMenuBoardVer
+        && d.checklist.checkCoupon),
   ];
   const done = dots.filter(Boolean).length;
   return { pct: Math.round(done / 4 * 100), dots };
+}
+
+function getMissingFields(d) {
+  const missing = [];
+  if (!d.basic.storeName)   missing.push('매장명');
+  if (!d.basic.installTime) missing.push('설치 예정 시간');
+  if (!d.basic.startTime)   missing.push('작업 시작 시간');
+  if (!d.basic.endTime)     missing.push('작업 종료 시간');
+  if (!d.pos.tableMode)     missing.push('테이블 모드');
+  if (!d.pos.remoteAccount) missing.push('원격 계정 종류');
+  if (!d.pos.remoteAdmin)   missing.push('원격어드민');
+  if (!d.pos.lmmAccount)    missing.push('LMM 매장명');
+  if (!d.pos.posTypes || d.pos.posTypes.length === 0) missing.push('POS 종류');
+  if (!d.pos.vanType)       missing.push('밴사');
+  if (!d.checklist.checkExternalIP)      missing.push('외부 공인 IP 확인');
+  if (!d.checklist.checkDHCP)            missing.push('DHCP 및 포트포워딩');
+  if (!d.checklist.localModeMenuBoard)   missing.push('로컬 모드 — 메뉴판');
+  if (!d.checklist.localModeNoticeBoard) missing.push('로컬 모드 — 알림판');
+  if (!d.checklist.checkFirewall)        missing.push('방화벽 OFF');
+  if (!d.checklist.checkFirewallPopup)   missing.push('방화벽 팝업 OFF');
+  if (!d.checklist.checkHiorderLogin)    missing.push('하이오더 포스 계정 로그인');
+  if (!d.checklist.checkSyncOrder)       missing.push('동기화 및 주문 테스트 출력');
+  if (!d.checklist.checkTableSort)       missing.push('동기화 후 환경설정 테이블관리');
+  if (!d.checklist.wifiStatus)           missing.push('와이파이 상태');
+  if (!d.checklist.checkMenuImage)       missing.push('메뉴 이미지 요청');
+  if (!d.checklist.checkMenuBoardAutoRun) missing.push('매니저 자동 실행 확인');
+  if (!d.checklist.checkNoticeBoardVer)  missing.push('알림판 Ver 확인');
+  if (!d.checklist.checkMenuBoardVer)    missing.push('메뉴판 Ver 확인');
+  if (!d.checklist.checkCoupon)          missing.push('쿠폰 생성 확인');
+  return missing;
 }
 
 function calcElapsed(start, end) {
@@ -181,9 +218,11 @@ function renderSidebar() {
   const active = S.sessions.active.filter(s =>
     !q || (s.data.basic.storeName || '').toLowerCase().includes(q)
   );
-  const completed = S.sessions.completed.filter(s =>
-    !q || (s.data.basic.storeName || '').toLowerCase().includes(q)
-  );
+  const completed = S.sessions.completed.filter(s => {
+    if (q && !(s.data.basic.storeName || '').toLowerCase().includes(q)) return false;
+    if (S.filterDate && (s.data.basic.installDate || '') !== S.filterDate) return false;
+    return true;
+  });
 
   $('activeCount').textContent = S.sessions.active.length;
   $('completedCount').textContent = S.sessions.completed.length;
@@ -216,7 +255,9 @@ function makeCard(session, isDraggable) {
   }
 
   const { pct } = calcProgress(session);
-  const name = session.data.basic.storeName || '새 매장';
+  const _sn = session.data.basic.storeName || '새 매장';
+  const _sid = session.data.basic.storeId;
+  const name = _sid ? `${_sn} (${_sid})` : _sn;
   const date = fmtDate(session.data.basic.installDate);
   const tableMode = session.data.basic.tableMode || session.data.pos.tableMode || '';
   const isActive = session.status === '작성중';
@@ -349,11 +390,11 @@ function loadForm(session) {
     });
   });
 
-  // Tag groups (pos types)
-  const posTypes = d.pos.posTypes || [];
+  // Tag groups (generic: array or string, supports data-radio)
   document.querySelectorAll('[id^="tg-"]').forEach(tg => {
+    const v = getPath(d, tg.dataset.path);
     tg.querySelectorAll('.tag').forEach(tag => {
-      tag.classList.toggle('sel', posTypes.includes(tag.dataset.val));
+      tag.classList.toggle('sel', Array.isArray(v) ? v.includes(tag.dataset.val) : v === tag.dataset.val);
     });
   });
 
@@ -547,6 +588,7 @@ document.querySelectorAll('.radio-row').forEach(rg => {
         session.data.pos.tableMode = val;
         syncTableMode(val);
         togglePrepaid(val);
+        renderSidebar();
       }
       updateProgress(session);
       scheduleSave();
@@ -573,19 +615,46 @@ if (wifiRg) {
   });
 }
 
-// Tag grid (POS types)
+// Tag grid (generic: supports radio single-select and multi-select)
 document.querySelectorAll('.tag-grid').forEach(tg => {
+  const isRadio = tg.dataset.radio === 'true';
+  const isString = tg.dataset.type === 'string';
+  const path = tg.dataset.path;
+
   tg.querySelectorAll('.tag').forEach(tag => {
     tag.addEventListener('click', () => {
       if (_loading) return;
       const session = currentSession();
       if (!session) return;
       const val = tag.dataset.val;
-      const arr = session.data.pos.posTypes || [];
-      const idx = arr.indexOf(val);
-      if (idx >= 0) arr.splice(idx, 1); else arr.push(val);
-      session.data.pos.posTypes = arr;
-      tag.classList.toggle('sel', arr.includes(val));
+
+      // Resolve parent object and key from path
+      const parts = path.split('.');
+      let obj = session.data;
+      for (let i = 0; i < parts.length - 1; i++) obj = obj[parts[i]];
+      const key = parts[parts.length - 1];
+
+      if (isString) {
+        // Single-select string: toggle off if same, else set
+        obj[key] = obj[key] === val ? '' : val;
+      } else {
+        // Array-backed (multi or radio)
+        const arr = Array.isArray(obj[key]) ? obj[key] : [];
+        if (isRadio) {
+          obj[key] = arr.includes(val) ? [] : [val];
+        } else {
+          const idx = arr.indexOf(val);
+          if (idx >= 0) arr.splice(idx, 1); else arr.push(val);
+          obj[key] = arr;
+        }
+      }
+
+      // Update sel class for all tags in this grid
+      const v = obj[key];
+      tg.querySelectorAll('.tag').forEach(t => {
+        t.classList.toggle('sel', Array.isArray(v) ? v.includes(t.dataset.val) : v === t.dataset.val);
+      });
+
       updateProgress(session);
       scheduleSave();
     });
@@ -669,19 +738,129 @@ function doSave() {
 }
 
 // ── Tab switching ──────────────────────────────────
+function switchTab(t) {
+  S.tab = t;
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', parseInt(b.dataset.tab) === t));
+  document.querySelectorAll('.tab-page').forEach((p, i) => p.classList.toggle('active', i === t));
+}
+
 document.querySelectorAll('.tab-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    const t = parseInt(btn.dataset.tab);
-    S.tab = t;
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b === btn));
-    document.querySelectorAll('.tab-page').forEach((p, i) => p.classList.toggle('active', i === t));
-  });
+  btn.addEventListener('click', () => switchTab(parseInt(btn.dataset.tab)));
+});
+
+// Alt+1~5 단축키
+document.addEventListener('keydown', e => {
+  if (!e.altKey || e.ctrlKey || e.metaKey) return;
+  const n = parseInt(e.key);
+  if (n >= 1 && n <= 5 && currentSession()) {
+    e.preventDefault();
+    switchTab(n - 1);
+  }
 });
 
 // ── Sidebar controls ───────────────────────────────
 $('btnNew').addEventListener('click', () => App.addSession());
 $('btnCalendar').addEventListener('click', () => Bridge.send('openCalendar'));
 $('btnSettings').addEventListener('click', () => Bridge.send('openSettings'));
+
+// ── Theme (sidebar color) ──────────────────────────
+const THEMES = [
+  { name: '다크 네이비',  nav: '#1E1E28', hover: '#2D2D3A' },
+  { name: '차콜',        nav: '#1C1C1C', hover: '#2B2B2B' },
+  { name: '딥 그린',     nav: '#1A2B1E', hover: '#25392A' },
+  { name: '버건디',      nav: '#2B1A1E', hover: '#3A252A' },
+  { name: '오션',        nav: '#162235', hover: '#1F3049' },
+  { name: '퍼플',        nav: '#211A2E', hover: '#2F263E' },
+  { name: '포레스트',    nav: '#1B2C1F', hover: '#263D2A' },
+  { name: '다크 브라운', nav: '#26200F', hover: '#352D1A' },
+];
+const THEME_KEY = 'sidebarTheme';
+const DEFAULT_THEME = THEMES[0];
+
+function hexToRgb(hex) {
+  const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+  return { r, g, b };
+}
+function lighten(hex, amt) {
+  const { r, g, b } = hexToRgb(hex);
+  const clamp = v => Math.min(255, v + amt);
+  return '#' + [clamp(r), clamp(g), clamp(b)].map(v => v.toString(16).padStart(2,'0')).join('');
+}
+
+const DEFAULT_TEXT = '#DCE1EB';
+
+function applyTheme(nav, hover, textNav) {
+  textNav = textNav || DEFAULT_TEXT;
+  document.documentElement.style.setProperty('--nav', nav);
+  document.documentElement.style.setProperty('--nav-hover', hover);
+  document.documentElement.style.setProperty('--text-nav', textNav);
+  document.querySelectorAll('.theme-swatch').forEach(s => {
+    s.classList.toggle('active', s.dataset.nav === nav);
+  });
+  $('themeColorPicker').value = nav;
+  $('themeTextPicker').value = textNav;
+}
+
+function saveTheme(nav, hover, textNav) {
+  textNav = textNav || $('themeTextPicker').value || DEFAULT_TEXT;
+  localStorage.setItem(THEME_KEY, JSON.stringify({ nav, hover, textNav }));
+  applyTheme(nav, hover, textNav);
+}
+
+function loadTheme() {
+  try {
+    const t = JSON.parse(localStorage.getItem(THEME_KEY));
+    if (t && t.nav) { applyTheme(t.nav, t.hover, t.textNav); return; }
+  } catch {}
+  applyTheme(DEFAULT_THEME.nav, DEFAULT_THEME.hover, DEFAULT_TEXT);
+}
+
+// 스와치 생성
+const swatchContainer = $('themeSwatches');
+THEMES.forEach(t => {
+  const s = document.createElement('div');
+  s.className = 'theme-swatch';
+  s.dataset.nav = t.nav;
+  s.dataset.hover = t.hover;
+  s.style.background = t.nav;
+  s.title = t.name;
+  s.innerHTML = '<span class="swatch-check">✓</span>';
+  s.addEventListener('click', () => saveTheme(t.nav, t.hover));
+  swatchContainer.appendChild(s);
+});
+
+// 테마 패널 토글
+$('btnTheme').addEventListener('click', e => {
+  e.stopPropagation();
+  $('themePanel').classList.toggle('hidden');
+});
+document.addEventListener('click', e => {
+  if (!$('themePanel').contains(e.target) && e.target !== $('btnTheme'))
+    $('themePanel').classList.add('hidden');
+});
+
+// 커스텀 컬러 피커 — 배경색
+$('themeColorPicker').addEventListener('input', e => {
+  const nav = e.target.value;
+  const hover = lighten(nav, 20);
+  saveTheme(nav, hover);
+});
+
+// 커스텀 컬러 피커 — 글씨색
+$('themeTextPicker').addEventListener('input', e => {
+  const stored = JSON.parse(localStorage.getItem(THEME_KEY) || '{}');
+  const nav = stored.nav || DEFAULT_THEME.nav;
+  const hover = stored.hover || DEFAULT_THEME.hover;
+  saveTheme(nav, hover, e.target.value);
+});
+
+// 초기화
+$('btnThemeReset').addEventListener('click', () => {
+  saveTheme(DEFAULT_THEME.nav, DEFAULT_THEME.hover, DEFAULT_TEXT);
+});
+
+// 앱 시작 시 테마 복원
+loadTheme();
 $('searchInput').addEventListener('input', e => {
   S.search = e.target.value;
   renderSidebar();
@@ -691,10 +870,26 @@ $('toggleCompleted').addEventListener('click', () => {
   S.showCompleted = !S.showCompleted;
   const list = $('completedList');
   const actions = $('completedActions');
+  const filter = $('completedFilter');
   const arrow = $('toggleArrow');
   list.classList.toggle('hidden', !S.showCompleted);
   actions.classList.toggle('hidden', !S.showCompleted);
+  filter.classList.toggle('hidden', !S.showCompleted);
   arrow.classList.toggle('open', S.showCompleted);
+  if (S.showCompleted) {
+    $('filterDate').value = S.filterDate;
+  }
+});
+
+$('filterDate').addEventListener('change', e => {
+  S.filterDate = e.target.value;
+  renderSidebar();
+});
+
+$('btnFilterClear').addEventListener('click', () => {
+  S.filterDate = '';
+  $('filterDate').value = '';
+  renderSidebar();
 });
 
 $('btnDeleteBatch').addEventListener('click', () => {
@@ -767,11 +962,21 @@ $('btnSendSms').addEventListener('click', () => {
   Bridge.send('sendSms', { phone, message: msg });
 });
 
+Bridge.on('smsSent', () => toast('문자 앱 열림 — 내용이 클립보드에 복사됐어요 (Ctrl+V)', 'success'));
+Bridge.on('smsCopied', () => toast('문자 앱을 열 수 없어 클립보드에 복사했습니다', 'warn'));
+
 $('btnSelectFiles').addEventListener('click', () => Bridge.send('selectFiles'));
 
 $('btnRegister').addEventListener('click', () => {
   const session = currentSession();
   if (!session) return;
+  const missing = getMissingFields(session.data);
+  if (missing.length > 0) {
+    const log = $('regLog');
+    log.classList.add('visible');
+    log.textContent = '⚠ 필수 항목을 먼저 입력해주세요:\n\n' + missing.map(m => '  • ' + m).join('\n');
+    return;
+  }
   const log = $('regLog');
   log.textContent = '';
   log.classList.add('visible');
@@ -797,7 +1002,7 @@ Bridge.on('sessionAdded', msg => {
 });
 
 Bridge.on('sessionSaved', () => {
-  // silent save OK
+  renderSidebar();
 });
 
 Bridge.on('sessionDeleted', msg => {
@@ -858,11 +1063,60 @@ Bridge.on('registrationProgress', msg => {
 
 Bridge.on('registrationResult', msg => {
   $('btnRegister').disabled = false;
-  if (msg.success) toast('자동 등록 완료!', 'success');
-  else toast('등록 실패: ' + (msg.message || '알 수 없는 오류'), 'error');
   const log = $('regLog');
-  if (log) { log.textContent += (msg.success ? '\n✔ 완료' : '\n✖ 실패: ' + msg.message) + '\n'; log.scrollTop = log.scrollHeight; }
+  if (msg.success) {
+    if (log) { log.textContent += '\n✔ 완료\n'; log.scrollTop = log.scrollHeight; }
+    const session = currentSession();
+    if (session) showRegCompleteModal(session);
+    else toast('자동 등록 완료!', 'success');
+  } else {
+    toast('등록 실패: ' + (msg.message || '알 수 없는 오류'), 'error');
+    if (log) { log.textContent += '\n✖ 실패: ' + msg.message + '\n'; log.scrollTop = log.scrollHeight; }
+  }
 });
+
+function buildKakaoMsg(session) {
+  const d = session.data;
+  const name = d.basic.storeName || '(매장명 없음)';
+  const wifi = d.checklist.wifiStatus || '-';
+  const coupon = d.checklist.checkCoupon || '-';
+  const issue = (d.finish.installIssue || '').trim() || '없음';
+  return [
+    `[ ${name} ]`,
+    '',
+    '- 연동완료',
+    `- 네트워크 상태 ${wifi}`,
+    `- 쿠폰 ${coupon}`,
+    `- 매장 특이사항 ${issue}`,
+  ].join('\n');
+}
+
+function showRegCompleteModal(session) {
+  $('regCompleteMsg').value = buildKakaoMsg(session);
+  $('regCompleteOverlay').classList.remove('hidden');
+}
+
+$('btnCopyMsg').addEventListener('click', () => {
+  const ta = $('regCompleteMsg');
+  navigator.clipboard.writeText(ta.value).then(() => {
+    $('btnCopyMsg').textContent = '복사됨';
+    setTimeout(() => { $('btnCopyMsg').textContent = '복사'; }, 1500);
+  }).catch(() => {
+    ta.select();
+    document.execCommand('copy');
+  });
+});
+
+$('btnCompleteYes').addEventListener('click', () => {
+  $('regCompleteOverlay').classList.add('hidden');
+  const session = currentSession();
+  if (session) Bridge.send('completeSession', { sessionId: session.id });
+});
+
+$('btnCompleteNo').addEventListener('click', () => {
+  $('regCompleteOverlay').classList.add('hidden');
+});
+
 
 Bridge.on('error', msg => toast(msg.message, 'error'));
 
