@@ -172,7 +172,18 @@ function initRouterAutocomplete() {
         if (idx >= 0 && acItems[idx]) {
           e.preventDefault();
           const t = acItems[idx].querySelector('.ac-text');
-          if (t) { inp.value = t.textContent; inp.dispatchEvent(new Event('input')); dd.classList.add('hidden'); }
+          if (t) {
+            const v = t.textContent;
+            inp.value = v;
+            dd.classList.add('hidden');
+            acSave(key, v);
+            const session = currentSession();
+            if (session && inp.dataset.path) {
+              setPath(session.data, inp.dataset.path, v);
+              updateProgress(session);
+              scheduleSave();
+            }
+          }
         }
       } else if (e.key === 'Escape') {
         dd.classList.add('hidden');
