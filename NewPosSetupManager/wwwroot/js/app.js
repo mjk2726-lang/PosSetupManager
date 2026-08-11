@@ -1130,14 +1130,15 @@ function buildKakaoMsg(session) {
   const name = d.basic.storeName || '(매장명 없음)';
   const wifi = d.checklist.wifiStatus || '-';
   const coupon = d.checklist.checkCoupon || '-';
-  const issue = (d.finish.installIssue || '').trim() || '없음';
+  const issue = (d.finish.installIssue || '').trim();
+  const issueLines = issue ? `- 특이사항 : \n   ${issue}` : '- 특이사항 :';
   return [
     `[ ${name} ]`,
     '',
     '- 연동완료',
     `- 네트워크 상태 ${wifi}`,
     `- 쿠폰 ${coupon}`,
-    `- 매장 특이사항 ${issue}`,
+    issueLines,
   ].join('\n');
 }
 
