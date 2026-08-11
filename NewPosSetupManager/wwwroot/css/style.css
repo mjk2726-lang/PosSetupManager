@@ -540,6 +540,9 @@ button:focus-visible, input:focus-visible, select:focus-visible {
   transition: background var(--trans);
 }
 .ac-item:hover { background: var(--bg); }
+.ac-item.ac-highlighted { background: var(--accent); }
+.ac-item.ac-highlighted .ac-text { color: #fff; }
+.ac-item.ac-highlighted .ac-del { color: rgba(255,255,255,.7); }
 .ac-text { flex: 1; font-size: 13px; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ac-del {
   width: 20px; height: 20px; border-radius: 50%; flex-shrink: 0;
