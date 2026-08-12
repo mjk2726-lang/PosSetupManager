@@ -1020,7 +1020,11 @@ $('btnSendSms').addEventListener('click', () => {
 Bridge.on('smsSent', () => toast('문자 앱 열림 — 내용이 클립보드에 복사됐어요 (Ctrl+V)', 'success'));
 Bridge.on('smsCopied', () => toast('문자 앱을 열 수 없어 클립보드에 복사했습니다', 'warn'));
 
-$('btnSelectFiles').addEventListener('click', () => Bridge.send('selectFiles'));
+$('btnAutoAttachImages').addEventListener('click', () => {
+  const session = currentSession();
+  Bridge.send('autoAttachImages', { storeName: session?.data?.basic?.storeName || '' });
+});
+$('btnManualSelectFiles').addEventListener('click', () => Bridge.send('manualSelectFiles'));
 
 $('btnRegister').addEventListener('click', () => {
   const session = currentSession();
@@ -1111,8 +1115,10 @@ Bridge.on('filesSelected', msg => {
   session.data.basic.attachmentPaths = paths;
   renderAttachments(paths);
   scheduleSave();
-  toast(msg.paths.length + '개 파일 추가됨');
+  toast(msg.automatic ? '매장명과 일치하는 이미지를 자동 첨부했습니다.' : msg.paths.length + '개 파일 추가됨');
 });
+
+Bridge.on('autoAttachmentNotFound', msg => toast(msg.message, 'warn'));
 
 Bridge.on('registrationProgress', msg => {
   const log = $('regLog');

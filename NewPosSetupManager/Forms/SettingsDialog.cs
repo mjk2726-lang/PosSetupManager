@@ -7,9 +7,9 @@ namespace NewPosSetupManager.Forms
 {
     public class SettingsDialog : Form
     {
-        private TextBox txtId, txtPw, txtSavePath;
+        private TextBox txtId, txtPw, txtSavePath, txtImageFolder;
         private CheckBox chkAutoReport, chkRouterAutocomplete;
-        private FluentButton btnSave, btnCancel, btnBrowse;
+        private FluentButton btnSave, btnCancel, btnBrowse, btnImageBrowse;
 
         private static readonly string SettingsFile = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
@@ -53,6 +53,13 @@ namespace NewPosSetupManager.Forms
             btnBrowse.Click += BtnBrowse_Click;
             this.Controls.AddRange(new Control[] { txtSavePath, btnBrowse }); y += 44;
 
+            var lblImagePath = new Label { Text = "\uc790\ub3d9 \ucca8\ubd80 \uc774\ubbf8\uc9c0 \ud3f4\ub354", Location = new Point(24, y), AutoSize = true, ForeColor = FluentColors.TextSecond, Font = FluentFonts.Caption };
+            this.Controls.Add(lblImagePath); y += 18;
+            txtImageFolder = new TextBox { Location = new Point(24, y), Width = 280, BorderStyle = BorderStyle.FixedSingle, Font = FluentFonts.Body };
+            btnImageBrowse = new FluentButton { Text = "\ucc3e\uc544\ubcf4\uae30", Location = new Point(312, y - 1), Width = 68, Height = 26, IsPrimary = false };
+            btnImageBrowse.Click += BtnImageBrowse_Click;
+            this.Controls.AddRange(new Control[] { txtImageFolder, btnImageBrowse }); y += 44;
+
             // ── 메모장 자동 생성 ──
             var lblSection3 = new Label { Text = "기타 설정", Font = FluentFonts.BodyBold, ForeColor = FluentColors.TextSecond, Location = new Point(24, y), AutoSize = true };
             this.Controls.Add(lblSection3); y += 24;
@@ -80,7 +87,7 @@ namespace NewPosSetupManager.Forms
             this.Controls.Add(chkRouterAutocomplete); y += 36;
 
             // ── 버튼 ──
-            this.Size = new Size(420, 396);
+            this.Size = new Size(420, 440);
             btnSave = new FluentButton { Text = "저장", IsPrimary = true, Location = new Point(24, y), Width = 170 };
             btnSave.Click += BtnSave_Click;
             btnCancel = new FluentButton { Text = "취소", IsPrimary = false, Location = new Point(204, y), Width = 176 };
@@ -104,6 +111,7 @@ namespace NewPosSetupManager.Forms
             if (!string.IsNullOrWhiteSpace(txtId.Text) && !string.IsNullOrWhiteSpace(txtPw.Text))
                 CredentialStore.Save(txtId.Text.Trim(), txtPw.Text);
             SavePath = txtSavePath.Text;
+            ImageFolder = txtImageFolder.Text;
             AutoReportEnabled = chkAutoReport.Checked;
             RouterAutocompleteEnabled = chkRouterAutocomplete.Checked;
             SaveSettings();
@@ -120,12 +128,14 @@ namespace NewPosSetupManager.Forms
             }
             LoadSettingsFile();
             txtSavePath.Text = SavePath ?? "";
+            txtImageFolder.Text = ImageFolder ?? "";
             chkAutoReport.Checked = AutoReportEnabled;
             chkRouterAutocomplete.Checked = RouterAutocompleteEnabled;
         }
 
         // ── 설정 관리 ──
         public static string SavePath { get; private set; }
+        public static string ImageFolder { get; private set; }
         public static bool AutoReportEnabled { get; private set; } = true;
         public static bool RouterAutocompleteEnabled { get; private set; } = true;
 
@@ -146,6 +156,7 @@ namespace NewPosSetupManager.Forms
                 SavePath = parts[0];
                 AutoReportEnabled = parts.Length < 2 || parts[1] != "false";
                 RouterAutocompleteEnabled = parts.Length < 3 || parts[2] != "false";
+                ImageFolder = parts.Length < 4 ? "" : parts[3];
             }
             catch { }
         }
@@ -156,9 +167,18 @@ namespace NewPosSetupManager.Forms
             {
                 Directory.CreateDirectory(Path.GetDirectoryName(SettingsFile));
                 File.WriteAllText(SettingsFile,
-                    (SavePath ?? "") + "|" + (AutoReportEnabled ? "true" : "false") + "|" + (RouterAutocompleteEnabled ? "true" : "false"));
+                    (SavePath ?? "") + "|" + (AutoReportEnabled ? "true" : "false") + "|" + (RouterAutocompleteEnabled ? "true" : "false") + "|" + (ImageFolder ?? ""));
             }
             catch { }
+        }
+
+        private void BtnImageBrowse_Click(object sender, EventArgs e)
+        {
+            using var dlg = new FolderBrowserDialog { Description = "\ub9e4\uc7a5\uba85.png \ud30c\uc77c\uc774 \uc800\uc7a5\ub41c \ud3f4\ub354\ub97c \uc120\ud0dd\ud574\uc8fc\uc138\uc694." };
+            if (!string.IsNullOrEmpty(txtImageFolder.Text) && Directory.Exists(txtImageFolder.Text))
+                dlg.SelectedPath = txtImageFolder.Text;
+            if (dlg.ShowDialog(this) == DialogResult.OK)
+                txtImageFolder.Text = dlg.SelectedPath;
         }
     }
 }

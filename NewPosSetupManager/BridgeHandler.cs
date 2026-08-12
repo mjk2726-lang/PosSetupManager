@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Linq;
 using System.Windows.Forms;
 using Microsoft.Web.WebView2.Core;
@@ -40,7 +41,8 @@ namespace NewPosSetupManager
                     case "restoreSession":   HandleRestoreSession(msg); break;
                     case "reorderSessions":  HandleReorderSessions(msg); break;
                     case "startRegistration":HandleStartRegistration(msg); break;
-                    case "selectFiles":      HandleSelectFiles(); break;
+                    case "autoAttachImages": HandleAutoAttachImages(msg); break;
+                    case "manualSelectFiles":HandleManualSelectFiles(); break;
                     case "callPhone":        HandleCallPhone(msg); break;
                     case "sendSms":          HandleSendSms(msg); break;
                     case "openCalendar":     HandleOpenCalendar(); break;
@@ -154,7 +156,43 @@ namespace NewPosSetupManager
             }
         }
 
-        private void HandleSelectFiles()
+        private void HandleAutoAttachImages(JObject msg)
+        {
+            _owner.Invoke((Action)(() =>
+            {
+                var storeName = msg["storeName"]?.ToString()?.Trim();
+                var imageFolder = SettingsDialog.ImageFolder;
+                if (string.IsNullOrWhiteSpace(storeName))
+                {
+                    Send(new { type = "autoAttachmentNotFound", message = "매장명을 먼저 입력해주세요." });
+                    return;
+                }
+                if (!Directory.Exists(imageFolder))
+                {
+                    Send(new { type = "autoAttachmentNotFound", message = "설정에서 자동 첨부 이미지 폴더를 지정해주세요." });
+                    return;
+                }
+
+                try
+                {
+                    var expectedNames = new[] { storeName + ".png", storeName + " 와이파이.png" };
+                    var matched = Directory.EnumerateFiles(imageFolder, "*.png", SearchOption.TopDirectoryOnly)
+                        .Where(path => expectedNames.Any(name => string.Equals(
+                            Path.GetFileName(path), name, StringComparison.OrdinalIgnoreCase)))
+                        .ToArray();
+                    if (matched.Length > 0)
+                    {
+                        Send(new { type = "filesSelected", paths = matched, automatic = true });
+                        return;
+                    }
+                }
+                catch { }
+
+                Send(new { type = "autoAttachmentNotFound", message = "매장명과 일치하는 이미지가 없습니다." });
+            }));
+        }
+
+        private void HandleManualSelectFiles()
         {
             _owner.Invoke((Action)(() =>
             {
