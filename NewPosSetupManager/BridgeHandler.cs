@@ -140,11 +140,13 @@ namespace NewPosSetupManager
                 var progress = new Progress<string>(m =>
                     Send(new { type = "registrationProgress", message = m }));
                 var result = await svc.RegisterAsync(session.Data, progress);
+                var eduSkipped = !System.Text.RegularExpressions.Regex.IsMatch(
+                    session.Data.Finish.RemoteEduContact ?? "", @"^010-\d{4}-\d{4}$");
 
                 if (result.Item1)
                     ReportService.SaveReport(session.Data);
 
-                Send(new { type = "registrationResult", success = result.Item1, message = result.Item2 });
+                Send(new { type = "registrationResult", success = result.Item1, message = result.Item2, eduSkipped });
             }
             catch (Exception ex)
             {

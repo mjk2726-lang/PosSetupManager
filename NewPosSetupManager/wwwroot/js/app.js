@@ -711,25 +711,33 @@ document.querySelectorAll('.tag-grid').forEach(tg => {
 
 // ── Phone format on blur ───────────────────────────
 function fmtPhone(raw) {
-  const d = raw.replace(/\D/g, '');
-  if (!d) return raw;
+  // 한글 등 숫자/하이픈 외 문자는 지우지 않고 남겨 형식 오류로 판정한다.
+  if (/[^0-9-]/.test(raw)) return raw;
+  const d = raw.replace(/\D/g, '').slice(0, 11);
+  if (!d) return '';
   if (d.startsWith('02')) {
-    if (d.length === 9)  return d.slice(0,2) + '-' + d.slice(2,5) + '-' + d.slice(5);
-    if (d.length === 10) return d.slice(0,2) + '-' + d.slice(2,6) + '-' + d.slice(6);
+    if (d.length <= 2) return d;
+    if (d.length <= 5) return d.slice(0, 2) + '-' + d.slice(2);
+    if (d.length <= 9) return d.slice(0, 2) + '-' + d.slice(2, 5) + '-' + d.slice(5);
+    return d.slice(0, 2) + '-' + d.slice(2, 6) + '-' + d.slice(6, 10);
   }
-  if (d.length === 10) return d.slice(0,3) + '-' + d.slice(3,6) + '-' + d.slice(6);
-  if (d.length === 11) return d.slice(0,3) + '-' + d.slice(3,7) + '-' + d.slice(7);
-  return d;
+  if (d.length <= 3) return d;
+  if (d.length <= 7) return d.slice(0, 3) + '-' + d.slice(3);
+  return d.slice(0, 3) + '-' + d.slice(3, 7) + '-' + d.slice(7, 11);
 }
 
 ['f-engineerContact','f-remoteEduContact'].forEach(id => {
   const el = $(id);
   if (!el) return;
-  el.addEventListener('blur', () => {
+  el.addEventListener('input', () => {
     const formatted = fmtPhone(el.value);
     if (formatted !== el.value) {
       el.value = formatted;
-      el.dispatchEvent(new Event('input'));
+      const session = currentSession();
+      if (session && el.dataset.path) {
+        setPath(session.data, el.dataset.path, formatted);
+        scheduleSave();
+      }
     }
   });
 });
@@ -1116,6 +1124,7 @@ Bridge.on('registrationResult', msg => {
   const log = $('regLog');
   if (msg.success) {
     if (log) { log.textContent += '\n✔ 완료\n'; log.scrollTop = log.scrollHeight; }
+    if (msg.eduSkipped) alert('교육 연락처 미 기입으로 교육등록 하지 않았습니다.');
     const session = currentSession();
     if (session) showRegCompleteModal(session);
     else toast('자동 등록 완료!', 'success');

@@ -93,8 +93,10 @@ namespace NewPosSetupManager.Services
                     await input.FillText("_cewz3pfou", d.Finish.CouponXReason);
 
                 var rawEduContact = d.Finish.RemoteEduContact ?? "";
-                var eduPhone = System.Text.RegularExpressions.Regex.Replace(rawEduContact, @"\D", "");
-                await input.FillTextRaw("_1zbjr7ank", rawEduContact);
+                var hasValidEduContact = System.Text.RegularExpressions.Regex.IsMatch(
+                    rawEduContact, @"^010-\d{4}-\d{4}$");
+                if (hasValidEduContact)
+                    await input.FillTextRaw("_1zbjr7ank", rawEduContact);
                 await input.FillTextArea("_l3ylkbwy6", d.Finish.InstallIssue);
 
                 if (d.Basic.AttachmentPaths != null && d.Basic.AttachmentPaths.Count > 0)
@@ -109,7 +111,7 @@ namespace NewPosSetupManager.Services
 
                 if (result.Item1)
                 {
-                    if (eduPhone.Length >= 9)
+                    if (hasValidEduContact)
                     {
                         progress?.Report("교육지원 등록 중...");
                         var eduPage = await BrowserService.NewPageAsync();
@@ -122,7 +124,7 @@ namespace NewPosSetupManager.Services
                     }
                     else
                     {
-                        progress?.Report("등록 완료! 브라우저에서 검수해주세요.");
+                        progress?.Report("교육 연락처 미 기입으로 교육등록 하지 않았습니다.");
                     }
                 }
 
