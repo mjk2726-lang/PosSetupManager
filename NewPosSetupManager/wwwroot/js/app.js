@@ -1146,15 +1146,15 @@ function buildKakaoMsg(session) {
   const wifi = d.checklist.wifiStatus || '-';
   const coupon = d.checklist.checkCoupon || '-';
   const issue = (d.finish.installIssue || '').trim();
-  const issueLines = issue ? `- 특이사항 : \n   ${issue}` : '- 특이사항 :';
-  return [
+  const lines = [
     `[ ${name} ]`,
     '',
     '- 연동완료',
     `- 네트워크 상태 ${wifi}`,
     `- 쿠폰 ${coupon}`,
-    issueLines,
-  ].join('\n');
+  ];
+  if (issue) lines.push(`- 특이사항 : \n   ${issue}`);
+  return lines.join('\n');
 }
 
 function showRegCompleteModal(session) {
