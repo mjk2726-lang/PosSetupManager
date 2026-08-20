@@ -53,6 +53,52 @@ namespace NewPosSetupManager.Services
             catch { }
         }
 
+        public async Task ClickCheckboxByQuestionText(string question, string value)
+        {
+            await ClickCheckboxOption(null, question, value);
+        }
+
+        public async Task ClickCheckboxByCid(string cid, string question, string value)
+        {
+            if (string.IsNullOrEmpty(cid)) return;
+            await ClickCheckboxOption("[data-cid='" + cid + "']", question, value);
+        }
+
+        private async Task ClickCheckboxOption(string componentSelector, string question, string value)
+        {
+            if (string.IsNullOrEmpty(question) || string.IsNullOrEmpty(value)) return;
+            var answer = value == "O" ? "네" : value == "X" ? "아니오" : "";
+            if (string.IsNullOrEmpty(answer)) return;
+
+            bool selected = await _page.EvaluateAsync<bool>(@"([selector, question, answer]) => {
+                    const component = selector
+                        ? document.querySelector(selector)
+                        : Array.from(document.querySelectorAll(
+                            '.form-component[data-type=""checkbox""], .form-component')).find(el => {
+                        const title = el.querySelector('.box_label_wrap label');
+                        return title && title.textContent.trim().includes(question);
+                    });
+                    if (!component) return false;
+                    const labels = Array.from(component.querySelectorAll('.build_box_data label, label'));
+                    const findOption = text => labels.find(label => label.textContent.trim() === text);
+                    const findInput = label => label && (
+                        (label.htmlFor && document.getElementById(label.htmlFor)) ||
+                        label.querySelector('input[type=""checkbox""]'));
+                    const targetLabel = findOption(answer);
+                    const otherLabel = findOption(answer === '네' ? '아니오' : '네');
+                    const targetInput = findInput(targetLabel);
+                    const otherInput = findInput(otherLabel);
+                    if (!targetLabel || !targetInput) return false;
+                    if (otherInput && otherInput.checked) otherLabel.click();
+                    if (!targetInput.checked) targetLabel.click();
+                    return targetInput.checked && (!otherInput || !otherInput.checked);
+                }", new object[] { componentSelector, question, answer });
+
+            await _page.WaitForTimeoutAsync(300);
+            if (!selected)
+                throw new InvalidOperationException(question + " 항목의 '" + answer + "' 선택을 확인하지 못했습니다.");
+        }
+
         public async Task FillLocalMode(bool menuBoard, bool noticeBoard)
         {
             if (menuBoard)

@@ -200,9 +200,11 @@ function calcProgress(session) {
   if (!session) return { pct: 0, dots: [false, false, false, false] };
   const d = session.data;
   const dots = [
-    !!(d.basic.storeName && d.basic.startTime && d.basic.endTime && d.basic.installTime),
+    !!(d.basic.storeName && d.basic.startTime && d.basic.endTime
+        && d.basic.installTime && ['후불', '선불'].includes(d.basic.tableMode)
+        && d.checklist.hyundaiOkFranchise),
     !!(d.pos.remoteAccount && d.pos.remoteAdmin && d.pos.lmmAccount
-        && d.pos.posTypes && d.pos.posTypes.length >= 1 && d.pos.vanType && d.pos.tableMode),
+        && d.pos.posTypes && d.pos.posTypes.length >= 1 && d.pos.vanType),
     !!(d.checklist.checkDHCP && d.checklist.checkExternalIP
         && d.checklist.localModeMenuBoard && d.checklist.localModeNoticeBoard),
     !!(d.checklist.checkFirewall && d.checklist.checkFirewallPopup
@@ -223,7 +225,7 @@ function getMissingFields(d) {
   if (!d.basic.installTime)    missing.push('설치 예정 시간');
   if (!d.basic.startTime)   missing.push('작업 시작 시간');
   if (!d.basic.endTime)     missing.push('작업 종료 시간');
-  if (!d.pos.tableMode)     missing.push('테이블 모드');
+  if (!['후불', '선불'].includes(d.basic.tableMode)) missing.push('테이블 모드');
   if (!d.pos.remoteAccount) missing.push('원격 계정 종류');
   if (!d.pos.remoteAdmin)   missing.push('원격어드민');
   if (!d.pos.lmmAccount)    missing.push('LMM 매장명');
@@ -244,6 +246,7 @@ function getMissingFields(d) {
   if (!d.checklist.checkNoticeBoardVer)  missing.push('알림판 Ver 확인');
   if (!d.checklist.checkMenuBoardVer)    missing.push('메뉴판 Ver 확인');
   if (!d.checklist.checkCoupon)          missing.push('쿠폰 생성 확인');
+  if (!d.checklist.hyundaiOkFranchise)   missing.push('현대옥 프랜차이즈 여부');
   return missing;
 }
 
@@ -306,7 +309,8 @@ function makeCard(session, isDraggable) {
   const _sid = session.data.basic.storeId;
   const name = _sid ? `${_sn} (${_sid})` : _sn;
   const date = fmtDate(session.data.basic.installDate);
-  const tableMode = session.data.basic.tableMode || session.data.pos.tableMode || '';
+  const rawTableMode = session.data.basic.tableMode || session.data.pos.tableMode || '';
+  const tableMode = ['후불', '선불'].includes(rawTableMode) ? rawTableMode : '';
   const isActive = session.status === '작성중';
 
   const statusCls = session.status === '완료' ? 'done' : isActive ? 'active' : 'idle';
@@ -457,12 +461,20 @@ function loadForm(session) {
 
   // Coupon reason visibility
   toggleCouponReason(d.checklist.checkCoupon, false);
+  toggleAdOptOut(d.checklist.hyundaiOkFranchise);
 
   // Prepaid section visibility
-  togglePrepaid(d.basic.tableMode || d.pos.tableMode);
-
-  // tableMode sync (tab0 and tab1 are synced)
-  syncTableMode(d.basic.tableMode || d.pos.tableMode);
+  const savedTableMode = d.basic.tableMode || d.pos.tableMode || '';
+  const tableMode = ['후불', '선불'].includes(savedTableMode) ? savedTableMode : '';
+  d.basic.tableMode = tableMode;
+  d.pos.tableMode = tableMode;
+  const tableModeGroup = $('rg-tableMode');
+  if (tableModeGroup) {
+    tableModeGroup.querySelectorAll('.radio-option').forEach(opt => {
+      opt.classList.toggle('sel', opt.dataset.val === tableMode);
+    });
+  }
+  togglePrepaid(tableMode);
 
   // 시간 포맷 정규화
   ['f-installTime','f-startTime','f-endTime','f-linkEndTime'].forEach(tid => {
@@ -471,6 +483,7 @@ function loadForm(session) {
     const fmt = fmtTime(te.value);
     if (fmt && fmt !== te.value) { te.value = fmt; setPath(d, te.dataset.path, fmt); }
   });
+  setAutoLinkEndTime(d, d.basic.startTime, true);
 
   // 전화번호 포맷 정규화
   ['f-engineerContact','f-remoteEduContact'].forEach(pid => {
@@ -494,20 +507,41 @@ function loadForm(session) {
   _loading = false;
 }
 
-function syncTableMode(val) {
-  ['rg-tableMode','rg-tableMode2'].forEach(id => {
-    const rg = $(id);
-    if (!rg) return;
-    rg.querySelectorAll('.radio-option').forEach(opt => {
-      opt.classList.toggle('sel', opt.dataset.val === val);
-    });
-  });
-}
-
 function toggleCouponReason(couponVal, animate) {
   const wrap = $('couponReasonWrap');
   if (!wrap) return;
   wrap.style.display = couponVal === 'X' ? '' : 'none';
+}
+
+function addMinutesToTime(time, minutes) {
+  const match = /^(\d{1,2}):(\d{2})$/.exec((time || '').trim());
+  if (!match) return '';
+  const hour = Number(match[1]), minute = Number(match[2]);
+  if (hour > 23 || minute > 59) return '';
+  const total = (hour * 60 + minute + minutes + 24 * 60) % (24 * 60);
+  return pad(Math.floor(total / 60)) + ':' + pad(total % 60);
+}
+
+function setAutoLinkEndTime(data, startTime, onlyWhenEmpty = false) {
+  if (onlyWhenEmpty && data.basic.linkEndTime) return;
+  const linkEndTime = addMinutesToTime(startTime, 30);
+  if (!linkEndTime) return;
+  data.basic.linkEndTime = linkEndTime;
+  const field = $('f-linkEndTime');
+  if (field) field.value = linkEndTime;
+}
+
+function toggleAdOptOut(hyundaiValue) {
+  const row = $('adOptOutRow');
+  if (!row) return;
+  const visible = hyundaiValue === 'O';
+  row.style.display = visible ? '' : 'none';
+  if (!visible) {
+    const session = currentSession();
+    if (session) session.data.checklist.checkAdOptOut = '';
+    const group = $('ox-checkAdOptOut');
+    if (group) group.querySelectorAll('.ox-btn').forEach(button => button.classList.remove('sel'));
+  }
 }
 
 function togglePrepaid(tableMode) {
@@ -568,6 +602,7 @@ function onFormChange(e) {
     renderSidebar();
   }
   if (p === 'basic.startTime' || p === 'basic.endTime') {
+    if (p === 'basic.startTime') setAutoLinkEndTime(d, d.basic.startTime);
     const elapsed = calcElapsed(d.basic.startTime, d.basic.endTime);
     d.basic.elapsedTime = elapsed;
     const ef = $('f-elapsedTime');
@@ -589,6 +624,7 @@ document.addEventListener('input', e => {
   const session = currentSession();
   if (!session) return;
   setPath(session.data, p, el.value);
+  if (p === 'basic.startTime') setAutoLinkEndTime(session.data, el.value);
   if (p === 'basic.storeName') {
     $('sTitle').textContent = el.value || '새 매장';
   }
@@ -611,6 +647,7 @@ document.querySelectorAll('.ox-group').forEach(og => {
       og.querySelectorAll('.ox-btn').forEach(b => b.classList.toggle('sel', b.dataset.val === newVal));
 
       if (p === 'checklist.checkCoupon') toggleCouponReason(newVal, true);
+      if (p === 'checklist.hyundaiOkFranchise') toggleAdOptOut(newVal);
       updateProgress(session);
       scheduleSave();
     });
@@ -629,11 +666,10 @@ document.querySelectorAll('.radio-row').forEach(rg => {
       setPath(session.data, p, val);
       rg.querySelectorAll('.radio-option').forEach(o => o.classList.toggle('sel', o.dataset.val === val));
 
-      // Sync tableMode between tab0 and tab1
-      if (p === 'basic.tableMode' || p === 'pos.tableMode') {
+      // 다우오피스 자동등록 모델에도 기본정보의 테이블 모드를 반영한다.
+      if (p === 'basic.tableMode') {
         session.data.basic.tableMode = val;
         session.data.pos.tableMode = val;
-        syncTableMode(val);
         togglePrepaid(val);
         renderSidebar();
       }
@@ -758,6 +794,7 @@ function fmtPhone(raw) {
       const d = session.data;
       if (id === 'f-startTime') d.basic.startTime = el.value;
       else d.basic.endTime = el.value;
+      if (id === 'f-startTime') setAutoLinkEndTime(d, el.value);
       const elapsed = calcElapsed(d.basic.startTime, d.basic.endTime);
       d.basic.elapsedTime = elapsed;
       const ef = $('f-elapsedTime');
@@ -984,6 +1021,7 @@ $('btnStartWork').addEventListener('click', () => {
   const session = currentSession();
   if (session) {
     session.data.basic.startTime = t;
+    setAutoLinkEndTime(session.data, t);
     updateProgress(session);
     scheduleSave();
   }
@@ -1025,6 +1063,10 @@ $('btnAutoAttachImages').addEventListener('click', () => {
   Bridge.send('autoAttachImages', { storeName: session?.data?.basic?.storeName || '' });
 });
 $('btnManualSelectFiles').addEventListener('click', () => Bridge.send('manualSelectFiles'));
+$('btnKakaoPreview').addEventListener('click', () => {
+  const session = currentSession();
+  if (session) showRegCompleteModal(session, false);
+});
 
 $('btnRegister').addEventListener('click', () => {
   const session = currentSession();
@@ -1157,8 +1199,13 @@ function buildKakaoMsg(session) {
   return lines.join('\n');
 }
 
-function showRegCompleteModal(session) {
-  $('regCompleteMsg').value = buildKakaoMsg(session);
+function showRegCompleteModal(session, completionMode = true) {
+  const message = $('regCompleteMsg');
+  message.value = buildKakaoMsg(session);
+  message.readOnly = !completionMode;
+  $('regCompleteTitle').textContent = completionMode ? '등록이 완료됐어요' : '카카오톡 메시지';
+  $('regCompleteSub').textContent = completionMode ? '완료처리 하시겠습니까?' : '현재 저장된 매장 정보 기준입니다.';
+  $('btnCompleteYes').style.display = completionMode ? '' : 'none';
   $('regCompleteOverlay').classList.remove('hidden');
 }
 
@@ -1232,6 +1279,7 @@ $('btnAllO').addEventListener('click', () => {
     setPath(session.data, p, 'O');
     og.querySelectorAll('.ox-btn').forEach(b => b.classList.toggle('sel', b.dataset.val === 'O'));
     if (p === 'checklist.checkCoupon') toggleCouponReason('O', false);
+    if (p === 'checklist.hyundaiOkFranchise') toggleAdOptOut('O');
   });
   updateProgress(session);
   scheduleSave();

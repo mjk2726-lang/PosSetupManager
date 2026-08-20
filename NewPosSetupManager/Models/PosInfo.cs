@@ -15,7 +15,7 @@ namespace NewPosSetupManager.Models
         public List<string> PosTypes { get; set; } = new List<string>();
         // "타밴" | "우리밴"
         public string VanType { get; set; } = "";
-        // "후불" | "선불" | "비연동"
+        // "후불" | "선불" (기본정보 선택값을 자동등록용으로 동기화)
         public string TableMode { get; set; } = "";
     }
 }

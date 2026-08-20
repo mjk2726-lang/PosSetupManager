@@ -180,11 +180,31 @@
           </div>
 
           <div class="form-section">
-            <div class="section-title">테이블 모드 <span class="required-dot" title="필수">*</span></div>
-            <div class="radio-row" id="rg-tableMode" data-path="basic.tableMode">
-              <label class="radio-option" data-val="후불"><input type="radio" name="tableMode" value="후불"> 후불</label>
-              <label class="radio-option" data-val="선불"><input type="radio" name="tableMode" value="선불"> 선불</label>
-              <label class="radio-option" data-val="비연동"><input type="radio" name="tableMode" value="비연동"> 비연동</label>
+            <div class="basic-mode-grid">
+              <div class="basic-mode-panel">
+                <div class="basic-mode-title">테이블 모드 <span class="required-dot" title="필수">*</span></div>
+                <div class="radio-row" id="rg-tableMode" data-path="basic.tableMode">
+                  <label class="radio-option" data-val="후불"><input type="radio" name="tableMode" value="후불"> 후불</label>
+                  <label class="radio-option" data-val="선불"><input type="radio" name="tableMode" value="선불"> 선불</label>
+                </div>
+              </div>
+              <div class="basic-mode-panel basic-mode-panel--ad">
+                <div class="basic-mode-title">광고</div>
+                <div class="checklist-row">
+                  <div class="checklist-label">혹시 현대옥 프랜차이즈인가요? <span class="required-dot" title="필수">*</span></div>
+                  <div class="ox-group" id="ox-hyundaiOkFranchise" data-path="checklist.hyundaiOkFranchise">
+                    <button class="ox-btn O" data-val="O">네</button>
+                    <button class="ox-btn X" data-val="X">아니오</button>
+                  </div>
+                </div>
+                <div class="checklist-row" id="adOptOutRow" style="display:none">
+                  <div class="checklist-label">광고 미동의 여부 확인하셨나요?</div>
+                  <div class="ox-group" id="ox-checkAdOptOut" data-path="checklist.checkAdOptOut">
+                    <button class="ox-btn O" data-val="O">네</button>
+                    <button class="ox-btn X" data-val="X">아니오</button>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -272,14 +292,6 @@
             </div>
           </div>
 
-          <div class="form-section">
-            <div class="section-title">테이블 모드 <span class="required-dot" title="필수">*</span></div>
-            <div class="radio-row" id="rg-tableMode2" data-path="pos.tableMode">
-              <label class="radio-option" data-val="후불"><input type="radio" name="tableMode2" value="후불"> 후불</label>
-              <label class="radio-option" data-val="선불"><input type="radio" name="tableMode2" value="선불"> 선불</label>
-              <label class="radio-option" data-val="비연동"><input type="radio" name="tableMode2" value="비연동"> 비연동</label>
-            </div>
-          </div>
         </div>
 
         <!-- ══ TAB 2: 공유기 / 네트워크 ══ -->
@@ -565,6 +577,7 @@
             <div class="section-title">다우오피스 자동 등록</div>
             <div class="btn-row">
               <button class="btn-primary" id="btnRegister">🤖 자동 등록 시작</button>
+              <button class="btn-secondary" id="btnKakaoPreview">카톡 메시지 다시보기</button>
             </div>
             <div class="reg-log" id="regLog"></div>
           </div>
@@ -585,8 +598,8 @@
 <!-- 등록 완료 팝업 -->
 <div id="regCompleteOverlay" class="modal-overlay hidden">
   <div class="modal-box">
-    <div class="modal-title">등록이 완료됐어요</div>
-    <div class="modal-sub">완료처리 하시겠습니까?</div>
+    <div class="modal-title" id="regCompleteTitle">등록이 완료됐어요</div>
+    <div class="modal-sub" id="regCompleteSub">완료처리 하시겠습니까?</div>
     <div class="modal-msg-wrap">
       <textarea id="regCompleteMsg" class="modal-msg" rows="8" spellcheck="false"></textarea>
       <button id="btnCopyMsg" class="btn-copy-msg" title="복사">복사</button>

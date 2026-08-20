@@ -30,5 +30,8 @@ namespace NewPosSetupManager.Models
         public string CheckMenuBoardVer { get; set; } = "";
         public string CheckMenuBoardAutoRun { get; set; } = "";
         public string CheckCoupon { get; set; } = "";
+        // "O"(네) | "X"(아니오)
+        public string HyundaiOkFranchise { get; set; } = "X";
+        public string CheckAdOptOut { get; set; } = "";
     }
 }
