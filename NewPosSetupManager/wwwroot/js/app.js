@@ -211,6 +211,7 @@ function calcProgress(session) {
         && d.checklist.checkHiorderLogin && d.checklist.checkSyncOrder
         && d.checklist.checkTableSort && d.checklist.wifiStatus
         && d.checklist.checkMenuImage && d.checklist.checkMenuBoardAutoRun
+        && d.checklist.checkIpMonitoringAutoRun
         && d.checklist.checkNoticeBoardVer && d.checklist.checkMenuBoardVer
         && d.checklist.checkCoupon),
   ];
@@ -243,6 +244,7 @@ function getMissingFields(d) {
   if (!d.checklist.wifiStatus)           missing.push('와이파이 상태');
   if (!d.checklist.checkMenuImage)       missing.push('메뉴 이미지 요청');
   if (!d.checklist.checkMenuBoardAutoRun) missing.push('매니저 자동 실행 확인');
+  if (!d.checklist.checkIpMonitoringAutoRun) missing.push('IP 모니터링 자동실행 설정 (작업 스케줄러)');
   if (!d.checklist.checkNoticeBoardVer)  missing.push('알림판 Ver 확인');
   if (!d.checklist.checkMenuBoardVer)    missing.push('메뉴판 Ver 확인');
   if (!d.checklist.checkCoupon)          missing.push('쿠폰 생성 확인');

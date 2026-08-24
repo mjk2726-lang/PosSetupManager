@@ -87,6 +87,7 @@ namespace NewPosSetupManager.Services
                 await input.FillOx("_t5q3e3lwi", d.Checklist.CheckNoticeBoardAdmin);
                 await input.FillOx("_348hrh4lz", d.Checklist.CheckMenuBoardVer);
                 await input.FillOx("_ld1lsnkhg", d.Checklist.CheckMenuBoardAutoRun);
+                await input.FillOx("_4ndziu3rn", d.Checklist.CheckIpMonitoringAutoRun);
                 await input.FillOx("_pe91qn43l", d.Checklist.CheckCoupon);
                 await input.ClickCheckboxByCid(
                     "_2u1cyr0yh", "혹시 현대옥 프랜차이즈인가요?", d.Checklist.HyundaiOkFranchise);
