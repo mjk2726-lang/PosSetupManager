@@ -1174,7 +1174,7 @@ Bridge.on('registrationResult', msg => {
   const log = $('regLog');
   if (msg.success) {
     if (log) { log.textContent += '\n✔ 완료\n'; log.scrollTop = log.scrollHeight; }
-    if (msg.eduSkipped) alert('교육 연락처 미 기입으로 교육등록 하지 않았습니다.');
+    if (msg.eduSkipped) alert(msg.eduSkipMessage || '교육 연락처 미 기입으로 교육등록 하지 않았습니다.');
     const session = currentSession();
     if (session) showRegCompleteModal(session);
     else toast('자동 등록 완료!', 'success');

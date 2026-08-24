@@ -98,10 +98,12 @@ namespace NewPosSetupManager.Services
                 if (d.Checklist.CheckCoupon == "X")
                     await input.FillText("_cewz3pfou", d.Finish.CouponXReason);
 
-                var rawEduContact = d.Finish.RemoteEduContact ?? "";
+                var rawEduContact = (d.Finish.RemoteEduContact ?? "").Trim();
                 var hasValidEduContact = System.Text.RegularExpressions.Regex.IsMatch(
                     rawEduContact, @"^010-\d{4}-\d{4}$");
-                if (hasValidEduContact)
+                // 전화번호가 아니더라도 "교육X", "점주 거부" 등의 사유는
+                // 다우오피스 원격 교육 연락처 칸에 기록해 이력을 남긴다.
+                if (!string.IsNullOrEmpty(rawEduContact))
                     await input.FillTextRaw("_1zbjr7ank", rawEduContact);
                 await input.FillTextArea("_l3ylkbwy6", d.Finish.InstallIssue);
 
@@ -130,7 +132,12 @@ namespace NewPosSetupManager.Services
                     }
                     else
                     {
-                        progress?.Report("교육 연락처 미 기입으로 교육등록 하지 않았습니다.");
+                        if (string.IsNullOrEmpty(rawEduContact))
+                            progress?.Report("교육 연락처 미 기입으로 교육등록 하지 않았습니다.");
+                        else if (System.Text.RegularExpressions.Regex.IsMatch(rawEduContact, @"\d"))
+                            progress?.Report("교육 연락처 형식이 올바르지 않아 교육등록 하지 않았습니다. 입력값: " + rawEduContact);
+                        else
+                            progress?.Report("교육지원 등록을 생략했습니다. 사유: " + rawEduContact);
                     }
                 }
 

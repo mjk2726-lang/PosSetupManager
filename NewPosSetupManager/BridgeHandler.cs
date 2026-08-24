@@ -142,13 +142,24 @@ namespace NewPosSetupManager
                 var progress = new Progress<string>(m =>
                     Send(new { type = "registrationProgress", message = m }));
                 var result = await svc.RegisterAsync(session.Data, progress);
+                var rawEduContact = (session.Data.Finish.RemoteEduContact ?? "").Trim();
                 var eduSkipped = !System.Text.RegularExpressions.Regex.IsMatch(
-                    session.Data.Finish.RemoteEduContact ?? "", @"^010-\d{4}-\d{4}$");
+                    rawEduContact, @"^010-\d{4}-\d{4}$");
+                string eduSkipMessage = null;
+                if (eduSkipped)
+                {
+                    if (string.IsNullOrEmpty(rawEduContact))
+                        eduSkipMessage = "교육 연락처 미 기입으로 교육등록 하지 않았습니다.";
+                    else if (System.Text.RegularExpressions.Regex.IsMatch(rawEduContact, @"\d"))
+                        eduSkipMessage = "교육 연락처 형식이 올바르지 않아 교육등록 하지 않았습니다.\n입력값: " + rawEduContact;
+                    else
+                        eduSkipMessage = "교육지원 등록을 생략했습니다.\n사유: " + rawEduContact;
+                }
 
                 if (result.Item1)
                     ReportService.SaveReport(session.Data);
 
-                Send(new { type = "registrationResult", success = result.Item1, message = result.Item2, eduSkipped });
+                Send(new { type = "registrationResult", success = result.Item1, message = result.Item2, eduSkipped, eduSkipMessage });
             }
             catch (Exception ex)
             {
