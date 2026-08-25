@@ -56,6 +56,7 @@ namespace NewPosSetupManager.Services
 
                 progress?.Report("POS 종류 선택 중...");
                 await input.FillPosTypes(d.Pos.PosTypes);
+                await input.FillVanType(d.Pos.VanType);
                 await input.ClickByLabel("_gl6wtnrv2", d.Pos.TableMode);
 
                 await input.FillText("_pg8jw7hs3", d.Network.RouterKT);

@@ -257,8 +257,6 @@ namespace NewPosSetupManager.Services
                 {"안시포스",           "_usvoeowq9_22"},
                 {"기타",               "_usvoeowq9_5"},
                 {"연동안함",           "_usvoeowq9_6"},
-                {"타밴",               "_usvoeowq9_7"},
-                {"우리밴",             "_usvoeowq9_8"},
             };
 
             var snapshot = new System.Collections.Generic.List<string>(posTypes);
@@ -271,6 +269,48 @@ namespace NewPosSetupManager.Services
                     catch { }
                 }
             }
+        }
+
+        // ── 밴사 체크박스 (POS 종류와 같은 다우 컴포넌트 안의 별도 필수 선택) ──
+        public async Task FillVanType(string vanType)
+        {
+            if (string.IsNullOrEmpty(vanType)) return;
+
+            string targetId;
+            string oppositeId;
+            if (vanType == "타밴")
+            {
+                targetId = "_usvoeowq9_7";
+                oppositeId = "_usvoeowq9_8";
+            }
+            else if (vanType == "우리밴")
+            {
+                targetId = "_usvoeowq9_8";
+                oppositeId = "_usvoeowq9_7";
+            }
+            else
+            {
+                throw new InvalidOperationException("알 수 없는 밴사 선택값입니다: " + vanType);
+            }
+
+            var target = _page.Locator(string.Format("input[id='{0}']", targetId));
+            var opposite = _page.Locator(string.Format("input[id='{0}']", oppositeId));
+            for (int attempt = 0; attempt < 2; attempt++)
+            {
+                if (await opposite.IsCheckedAsync())
+                    await _page.ClickAsync(string.Format("label[for='{0}']", oppositeId),
+                        new PageClickOptions { Timeout = 3000 });
+
+                if (!await target.IsCheckedAsync())
+                    await _page.ClickAsync(string.Format("label[for='{0}']", targetId),
+                        new PageClickOptions { Timeout = 3000 });
+
+                await _page.WaitForTimeoutAsync(300);
+                if (await target.IsCheckedAsync() && !await opposite.IsCheckedAsync())
+                    return;
+            }
+
+            throw new InvalidOperationException("밴사 선택을 다우오피스에 반영하지 못했습니다: " + vanType);
         }
 
         // ── 선불 체크박스 ──
