@@ -351,7 +351,7 @@ namespace NewPosSetupManager.Services
                     if (attempt > 0)
                     {
                         // 팝업이 열려있으면 닫기
-                        await SafeClick("a.btn_layer_x");
+                        await CloseOrganogramPopup();
                         await _page.WaitForTimeoutAsync(400);
                     }
 
@@ -360,7 +360,11 @@ namespace NewPosSetupManager.Services
                     {
                         bool alreadySet = await _page.EvaluateAsync<bool>(
                             "n => (document.querySelector('[data-cid=\"_98c44zcu9\"]')?.innerText ?? '').includes(n)", name);
-                        if (alreadySet) return;
+                        if (alreadySet)
+                        {
+                            await CloseOrganogramPopup();
+                            return;
+                        }
                     }
 
                     await _page.ClickAsync("[data-cid='_98c44zcu9'] .add-btn", new PageClickOptions { Timeout = 4000 });
@@ -385,8 +389,8 @@ namespace NewPosSetupManager.Services
                     await member.First.ClickAsync(new LocatorClickOptions { Force = true, Timeout = 5000 });
                     await _page.WaitForTimeoutAsync(1500); // 선택 서버 반영 대기 (핵심)
 
-                    await SafeClick("a.btn_layer_x");
-                    await _page.WaitForTimeoutAsync(1000); // DOM 업데이트 대기
+                    await CloseOrganogramPopup();
+                    await _page.WaitForTimeoutAsync(500); // DOM 업데이트 대기
 
                     bool selected = await _page.EvaluateAsync<bool>(
                         "n => (document.querySelector('[data-cid=\"_98c44zcu9\"]')?.innerText ?? '').includes(n)", name);
@@ -399,6 +403,45 @@ namespace NewPosSetupManager.Services
                     System.Diagnostics.Debug.WriteLine("원격담당자 오류 (attempt " + attempt + "): " + ex.Message);
                     await _page.WaitForTimeoutAsync(1000);
                 }
+            }
+
+            throw new InvalidOperationException("원격 담당자를 다우오피스에 반영하지 못했습니다: " + name);
+        }
+
+        private async Task CloseOrganogramPopup()
+        {
+            var popup = _page.Locator("#gpopupLayer");
+            if (await popup.CountAsync() == 0 || !await popup.IsVisibleAsync()) return;
+
+            var closeButton = popup.Locator("a.btn_minor_s")
+                .Filter(new LocatorFilterOptions { HasText = "닫기" })
+                .First;
+            try
+            {
+                await closeButton.ClickAsync(new LocatorClickOptions { Force = true, Timeout = 3000 });
+            }
+            catch
+            {
+                // 다른 레이어가 클릭을 가로막는 경우에도 페이지의 원래 클릭 핸들러를 실행한다.
+                await closeButton.EvaluateAsync("el => el.click()");
+            }
+
+            try
+            {
+                await popup.WaitForAsync(new LocatorWaitForOptions
+                {
+                    State = WaitForSelectorState.Hidden,
+                    Timeout = 5000
+                });
+            }
+            catch
+            {
+                await _page.Keyboard.PressAsync("Escape");
+                await popup.WaitForAsync(new LocatorWaitForOptions
+                {
+                    State = WaitForSelectorState.Hidden,
+                    Timeout = 3000
+                });
             }
         }
 
