@@ -9,7 +9,12 @@ namespace NewPosSetupManager.Services
     public static class CalendarReader
     {
         public static readonly string BaseUrl =
-            "https://sorder1004.daouoffice.com/gw/app/calendar/";
+            "https://sorder1004.daouoffice.com/gw/app/calendar";
+
+        public static string TodayAgendaUrl()
+        {
+            return BaseUrl + "/agenda/" + DateTime.Today.ToString("yyyy-MM-dd");
+        }
 
         // 페이지에서 오늘 일정 추출하는 JS
         public static string GetExtractScript()
@@ -18,43 +23,30 @@ namespace NewPosSetupManager.Services
   try {
     var items = [];
     var seen = {};
+    var urlMatch = window.location.href.match(/\/agenda\/\d{4}-(\d{2})-(\d{2})/);
+    var targetDate = urlMatch ? (urlMatch[1] + '.' + urlMatch[2]) : null;
+    var table = document.querySelector('table.tb_agenda, table[class*=""tb_agenda""]');
+    if (!table) return JSON.stringify({ ok: false, error: '오늘 일정 테이블을 찾지 못했습니다.', items: [] });
 
-    // 다우오피스 캘린더 이벤트 셀렉터 (여러 구조 대응)
-    var selectors = [
-      '.cal-event-item', '.event-item', '.schedule_item', '.cal_event',
-      '.day-event-item', '[data-type=""event""]', '.plan-item',
-      '.schedule-event', '.event', '.fc-event'
-    ];
+    var currentDate = null;
+    table.querySelectorAll('tbody tr').forEach(function(row) {
+      var th = row.querySelector('th');
+      if (th) {
+        currentDate = (th.innerText || th.textContent || '')
+          .trim().replace(/\([^)]*\)/g, '').trim();
+      }
+      if (targetDate && currentDate !== targetDate) return;
 
-    var found = [];
-    for (var i = 0; i < selectors.length; i++) {
-      var els = document.querySelectorAll(selectors[i]);
-      if (els.length > 0) { found = Array.from(els); break; }
-    }
-
-    // 못 찾으면 클래스명 기반 휴리스틱 탐색
-    if (found.length === 0) {
-      var all = document.querySelectorAll('[class]');
-      all.forEach(function(el) {
-        var cls = (el.className || '').toString();
-        if (/event|schedule|plan/i.test(cls) && el.children.length < 8) {
-          var t = el.textContent.trim().replace(/\s+/g, ' ');
-          if (t.length > 1 && t.length < 120) found.push(el);
-        }
-      });
-    }
-
-    found.forEach(function(el) {
-      var title = (el.getAttribute('title') || el.textContent || '')
-                    .trim().replace(/\s+/g, ' ');
-      if (!title || seen[title]) return;
+      var link = row.querySelector('.event_link');
+      var nameCell = row.querySelector('td.align_l');
+      if (!link || !nameCell) return;
+      var title = (nameCell.innerText || nameCell.textContent || '')
+        .trim().replace(/\s+/g, ' ');
+      if (!title || title.length > 200 || seen[title]) return;
       seen[title] = true;
 
-      var time = '';
-      var timeEl = el.querySelector('time, .time, [class*=""time""], .fc-time');
-      if (timeEl) time = timeEl.textContent.trim();
-
-      items.push({ title: title, time: time });
+      var timeEl = row.querySelector('time, .time, [class*=""time""]');
+      items.push({ title: title, time: timeEl ? timeEl.textContent.trim() : '' });
     });
 
     return JSON.stringify({ ok: true, items: items, count: items.length });
@@ -100,11 +92,15 @@ namespace NewPosSetupManager.Services
                     string title = ((string)item["title"] ?? "").Trim();
                     string time = ((string)item["time"] ?? "").Trim();
                     if (string.IsNullOrEmpty(title)) continue;
+                    bool isPrepaid = Regex.IsMatch(title, @"^\s*\[선불\]");
+                    string storeName = ParseStoreName(title);
+                    if (string.IsNullOrWhiteSpace(storeName)) continue;
 
                     var si = new ScheduleItem
                     {
                         RawTitle = title,
-                        StoreName = ParseStoreName(title),
+                        StoreName = storeName,
+                        TableMode = isPrepaid ? "선불" : "후불",
                         InstallDate = targetDate,
                         InstallTime = ParseTime(time.Length > 0 ? time : title),
                         RemoteManager = ParseRemoteManager(title),
@@ -117,27 +113,27 @@ namespace NewPosSetupManager.Services
             return result;
         }
 
-        // "[매장명]..." 또는 "매장명 /" 또는 "매장명 -" 패턴 파싱
+        // agenda 제목: "[선불]매장명(담당자)", "[필드]매장명(담당자)", "매장명(담당자)"
         private static string ParseStoreName(string title)
         {
-            // [내용] 형식
-            var m = Regex.Match(title, @"\[([^\]]+)\]");
-            if (m.Success) return m.Groups[1].Value.Trim();
+            if (string.IsNullOrWhiteSpace(title)) return "";
+
+            // [선불], [필드] 등 일정 분류 태그는 매장명이 아니다.
+            string cleaned = Regex.Replace(title.Trim(), @"^\s*(?:\[[^\]]+\]\s*)+", "");
+
+            // 마지막 괄호는 담당자 표기: (조해찬)
+            cleaned = Regex.Replace(cleaned, @"\s*\([^()]*\)\s*$", "").Trim();
+            if (string.IsNullOrEmpty(cleaned)) return "";
 
             // 슬래시 앞
-            int idx = title.IndexOf('/');
-            if (idx > 1) return title.Substring(0, idx).Trim();
+            int idx = cleaned.IndexOf('/');
+            if (idx > 1) return cleaned.Substring(0, idx).Trim();
 
             // 대시 앞 (단, 시간 패턴 앞에 오는 대시 제외)
-            idx = title.IndexOf(" - ");
-            if (idx > 1) return title.Substring(0, idx).Trim();
+            idx = cleaned.IndexOf(" - ");
+            if (idx > 1) return cleaned.Substring(0, idx).Trim();
 
-            // 괄호 앞
-            idx = title.IndexOf('(');
-            if (idx > 1) return title.Substring(0, idx).Trim();
-
-            // 공백 없는 짧은 텍스트면 그대로
-            return title.Length <= 30 ? title : title.Split(' ')[0];
+            return cleaned;
         }
 
         // "원격: 이름" 또는 "원격담당: 이름" 패턴

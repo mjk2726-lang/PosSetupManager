@@ -45,7 +45,7 @@ namespace NewPosSetupManager
                     case "manualSelectFiles":HandleManualSelectFiles(); break;
                     case "callPhone":        HandleCallPhone(msg); break;
                     case "sendSms":          HandleSendSms(msg); break;
-                    case "openCalendar":     HandleOpenCalendar(); break;
+                    case "openCalendar":     _owner.BeginInvoke((Action)HandleOpenCalendar); break;
                     case "openSettings":     HandleOpenSettings(); break;
                     case "deleteBatch":      HandleDeleteBatch(msg); break;
                     case "setTitle":         _owner.Invoke((Action)(() => _owner.Text = msg["title"]?.ToString())); break;
@@ -82,6 +82,8 @@ namespace NewPosSetupManager
         private void HandleAddSession()
         {
             var session = _workspace.AddSession();
+            session.Data.Basic.RemoteManager =
+                (SettingsDialog.CalendarLookupName ?? "").Trim();
             _workspace.Save();
             Send(new { type = "sessionAdded", session });
         }
@@ -250,26 +252,41 @@ namespace NewPosSetupManager
 
         private void HandleOpenCalendar()
         {
-            _owner.Invoke((Action)(() =>
+            if (_owner.InvokeRequired)
             {
-                using var dlg = new CalendarForm();
-                if (dlg.ShowDialog(_owner) != DialogResult.OK) return;
-                var items = dlg.ExtractedItems;
-                if (items == null || items.Count == 0) return;
+                _owner.BeginInvoke((Action)HandleOpenCalendar);
+                return;
+            }
 
-                foreach (var item in items)
-                {
-                    var session = _workspace.AddSession();
-                    session.Data.Basic.StoreName = item.StoreName;
-                    if (item.InstallDate.HasValue)
-                        session.Data.Basic.InstallDate = item.InstallDate.Value.ToString("yyyy-MM-dd");
-                    session.Data.Basic.InstallTime = item.InstallTime;
-                    session.Data.Basic.RemoteManager = item.RemoteManager;
-                    session.Data.Basic.EngineerContact = item.EngineerContact;
-                }
-                _workspace.Save();
-                HandleGetSessions();
-            }));
+            var lookupName = SettingsDialog.CalendarLookupName;
+            if (string.IsNullOrWhiteSpace(lookupName))
+            {
+                MessageBox.Show(_owner,
+                    "설정에서 '캘린더 조회 이름'을 먼저 입력해주세요.",
+                    "캘린더 조회 이름 필요",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+                return;
+            }
+
+            var existingNames = _workspace.ActiveSessions
+                .Select(s => s.Data?.Basic?.StoreName)
+                .Where(n => !string.IsNullOrWhiteSpace(n));
+            using var dlg = new CalendarForm(lookupName, existingNames);
+            if (dlg.ShowDialog(_owner) != DialogResult.OK) return;
+            var items = dlg.ExtractedItems;
+            if (items == null || items.Count == 0) return;
+
+            foreach (var item in items)
+            {
+                var session = _workspace.AddSession();
+                session.Data.Basic.StoreName = item.StoreName;
+                session.Data.Basic.RemoteManager = lookupName.Trim();
+                session.Data.Basic.TableMode = item.TableMode;
+                session.Data.Pos.TableMode = item.TableMode;
+            }
+            _workspace.Save();
+            HandleGetSessions();
         }
 
         private void HandleOpenSettings()

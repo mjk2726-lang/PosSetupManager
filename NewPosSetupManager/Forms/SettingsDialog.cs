@@ -7,7 +7,7 @@ namespace NewPosSetupManager.Forms
 {
     public class SettingsDialog : Form
     {
-        private TextBox txtId, txtPw, txtSavePath, txtImageFolder;
+        private TextBox txtId, txtPw, txtCalendarName, txtSavePath, txtImageFolder;
         private CheckBox chkAutoReport, chkRouterAutocomplete;
         private FluentButton btnSave, btnCancel, btnBrowse, btnImageBrowse;
 
@@ -40,7 +40,12 @@ namespace NewPosSetupManager.Forms
             var lblPw = new Label { Text = "비밀번호", Location = new Point(24, y), AutoSize = true, ForeColor = FluentColors.TextSecond, Font = FluentFonts.Caption };
             this.Controls.Add(lblPw); y += 18;
             txtPw = new TextBox { Location = new Point(24, y), Width = 356, BorderStyle = BorderStyle.FixedSingle, Font = FluentFonts.Body, UseSystemPasswordChar = true };
-            this.Controls.Add(txtPw); y += 36;
+            this.Controls.Add(txtPw); y += 32;
+
+            var lblCalendarName = new Label { Text = "캘린더 조회 이름", Location = new Point(24, y), AutoSize = true, ForeColor = FluentColors.TextSecond, Font = FluentFonts.Caption };
+            this.Controls.Add(lblCalendarName); y += 18;
+            txtCalendarName = new TextBox { Location = new Point(24, y), Width = 356, BorderStyle = BorderStyle.FixedSingle, Font = FluentFonts.Body };
+            this.Controls.Add(txtCalendarName); y += 36;
 
             // ── 저장 폴더 ──
             var lblSection2 = new Label { Text = "보고서 저장 위치", Font = FluentFonts.BodyBold, ForeColor = FluentColors.TextSecond, Location = new Point(24, y), AutoSize = true };
@@ -87,7 +92,7 @@ namespace NewPosSetupManager.Forms
             this.Controls.Add(chkRouterAutocomplete); y += 36;
 
             // ── 버튼 ──
-            this.Size = new Size(420, 440);
+            this.Size = new Size(420, 490);
             btnSave = new FluentButton { Text = "저장", IsPrimary = true, Location = new Point(24, y), Width = 170 };
             btnSave.Click += BtnSave_Click;
             btnCancel = new FluentButton { Text = "취소", IsPrimary = false, Location = new Point(204, y), Width = 176 };
@@ -112,6 +117,7 @@ namespace NewPosSetupManager.Forms
                 CredentialStore.Save(txtId.Text.Trim(), txtPw.Text);
             SavePath = txtSavePath.Text;
             ImageFolder = txtImageFolder.Text;
+            CalendarLookupName = txtCalendarName.Text.Trim();
             AutoReportEnabled = chkAutoReport.Checked;
             RouterAutocompleteEnabled = chkRouterAutocomplete.Checked;
             SaveSettings();
@@ -129,6 +135,7 @@ namespace NewPosSetupManager.Forms
             LoadSettingsFile();
             txtSavePath.Text = SavePath ?? "";
             txtImageFolder.Text = ImageFolder ?? "";
+            txtCalendarName.Text = CalendarLookupName ?? "";
             chkAutoReport.Checked = AutoReportEnabled;
             chkRouterAutocomplete.Checked = RouterAutocompleteEnabled;
         }
@@ -136,6 +143,7 @@ namespace NewPosSetupManager.Forms
         // ── 설정 관리 ──
         public static string SavePath { get; private set; }
         public static string ImageFolder { get; private set; }
+        public static string CalendarLookupName { get; private set; }
         public static bool AutoReportEnabled { get; private set; } = true;
         public static bool RouterAutocompleteEnabled { get; private set; } = true;
 
@@ -157,6 +165,7 @@ namespace NewPosSetupManager.Forms
                 AutoReportEnabled = parts.Length < 2 || parts[1] != "false";
                 RouterAutocompleteEnabled = parts.Length < 3 || parts[2] != "false";
                 ImageFolder = parts.Length < 4 ? "" : parts[3];
+                CalendarLookupName = parts.Length < 5 ? "" : parts[4];
             }
             catch { }
         }
@@ -167,7 +176,7 @@ namespace NewPosSetupManager.Forms
             {
                 Directory.CreateDirectory(Path.GetDirectoryName(SettingsFile));
                 File.WriteAllText(SettingsFile,
-                    (SavePath ?? "") + "|" + (AutoReportEnabled ? "true" : "false") + "|" + (RouterAutocompleteEnabled ? "true" : "false") + "|" + (ImageFolder ?? ""));
+                    (SavePath ?? "") + "|" + (AutoReportEnabled ? "true" : "false") + "|" + (RouterAutocompleteEnabled ? "true" : "false") + "|" + (ImageFolder ?? "") + "|" + (CalendarLookupName ?? ""));
             }
             catch { }
         }

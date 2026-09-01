@@ -578,6 +578,25 @@ function removeAttachment(index) {
   scheduleSave();
 }
 
+function syncStartTimeToInstall(data, installTime) {
+  data.basic.startTime = installTime;
+  const startField = $('f-startTime');
+  if (startField) startField.value = installTime;
+  setAutoLinkEndTime(data, installTime);
+  const elapsed = calcElapsed(data.basic.startTime, data.basic.endTime);
+  data.basic.elapsedTime = elapsed;
+  const elapsedField = $('f-elapsedTime');
+  if (elapsedField) elapsedField.value = elapsed;
+}
+
+function syncInstallTimeFromStartWhenEmpty(data, startTime) {
+  if ((data.basic.installTime || '').trim()) return;
+  if (!/^\d{2}:\d{2}$/.test(startTime)) return;
+  data.basic.installTime = startTime;
+  const installField = $('f-installTime');
+  if (installField) installField.value = startTime;
+}
+
 // ── Form change handling ───────────────────────────
 function onFormChange(e) {
   if (_loading) return;
@@ -603,8 +622,14 @@ function onFormChange(e) {
     $('sDate').textContent = fmtDateFull(el.value);
     renderSidebar();
   }
+  if (p === 'basic.installTime') {
+    syncStartTimeToInstall(d, el.value);
+  }
   if (p === 'basic.startTime' || p === 'basic.endTime') {
-    if (p === 'basic.startTime') setAutoLinkEndTime(d, d.basic.startTime);
+    if (p === 'basic.startTime') {
+      syncInstallTimeFromStartWhenEmpty(d, d.basic.startTime);
+      setAutoLinkEndTime(d, d.basic.startTime);
+    }
     const elapsed = calcElapsed(d.basic.startTime, d.basic.endTime);
     d.basic.elapsedTime = elapsed;
     const ef = $('f-elapsedTime');
@@ -625,8 +650,17 @@ document.addEventListener('input', e => {
   if (!p) return;
   const session = currentSession();
   if (!session) return;
-  setPath(session.data, p, el.value);
-  if (p === 'basic.startTime') setAutoLinkEndTime(session.data, el.value);
+  let value = el.value;
+  if ((p === 'basic.installTime' || p === 'basic.startTime') && /^\d{4}$/.test(value.trim())) {
+    value = fmtTime(value);
+    el.value = value;
+  }
+  setPath(session.data, p, value);
+  if (p === 'basic.installTime') syncStartTimeToInstall(session.data, value);
+  if (p === 'basic.startTime') {
+    syncInstallTimeFromStartWhenEmpty(session.data, value);
+    setAutoLinkEndTime(session.data, value);
+  }
   if (p === 'basic.storeName') {
     $('sTitle').textContent = el.value || '새 매장';
   }
@@ -854,7 +888,6 @@ document.addEventListener('keydown', e => {
 
 // ── Sidebar controls ───────────────────────────────
 $('btnNew').addEventListener('click', () => App.addSession());
-$('btnCalendar').addEventListener('click', () => Bridge.send('openCalendar'));
 $('btnSettings').addEventListener('click', () => Bridge.send('openSettings'));
 
 // ── Theme (sidebar color) ──────────────────────────
